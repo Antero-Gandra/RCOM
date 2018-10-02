@@ -21,7 +21,7 @@ int main(int argc, char** argv)
     int fd,c, res; 
     struct termios oldtio,newtio; 
     char buf[255]; 
-    int i, sum = 0, speed = 0; 
+    int i, sum = 0, speed = 0, x = 0; 
      
     if ( (argc < 2) ||  
            ((strcmp("/dev/ttyS0", argv[1])!=0) &&  
@@ -75,11 +75,28 @@ int main(int argc, char** argv)
     
     printf("Insert string\n"); 
     /*testing*/ 
-    gets(temp); 
-    if (temp[5]=='\0') {printf("ok");} 
-    res = write(fd,temp,200);
-    fflush(NULL); 
-  
+    gets(temp);
+	 
+	/*while (temp[x] != '\0') {
+		res = write(fd,temp[x],200);
+    	fflush(NULL);
+		x++;
+	}
+  	*/
+	res = write(fd,temp,200);
+	fflush(NULL);
+
+	sleep(1);
+
+int count = 0;
+    while (STOP==FALSE) {
+		if((res = read(fd,buf+count,1)) > 0) {
+			count += res;
+			if (buf[count-1]=='\0') STOP=TRUE;
+		}		
+    }
+
+printf("%s\n", buf);
   /*  
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar  
     o indicado no guião  
