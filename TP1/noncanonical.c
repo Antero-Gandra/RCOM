@@ -82,12 +82,9 @@ int main(int argc, char** argv)
 
     printf("%s\n", buf);
 
-
-  /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
-  */
-
-    sleep(1);
+    //Write back
+    res = write(fd,buf,200);
+    fflush(NULL); 
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
