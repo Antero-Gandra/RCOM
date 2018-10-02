@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) prÛximo(s) caracter(es)
+    leitura do(s) pr√≥ximo(s) caracter(es)
   */
 
     tcflush(fd, TCIOFLUSH);
@@ -72,17 +72,22 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\nWaiting...\n");
 
-
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,255);   /* returns after 1 chars have been input */
-      printf("%c", buf[res]);
-      if (buf[0]=='\0') STOP=TRUE;
+    int count = 0;
+    while (STOP==FALSE) {
+		if((res = read(fd,buf+count,1)) > 0) {
+			count += res;
+			if (buf[count-1]=='\0') STOP=TRUE;
+		}		
     }
+
+    printf("%s\n", buf);
 
 
   /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no gui„o 
+    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no gui√£o 
   */
+
+    sleep(1);
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
