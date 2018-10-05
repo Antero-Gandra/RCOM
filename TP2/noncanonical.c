@@ -22,11 +22,37 @@ Usar fflush(NULL) no inicio e depois de invocar o write. Evita chars estranhos n
 
 volatile int STOP=FALSE;
 
+void LLOPEN(int* fd){
+
+	int res;
+	char buf[5];
+	int count = 0;
+	printf("Waiting...\n");
+    while (STOP==FALSE) {
+		if((res = read((*fd),buf+count,1)) > 0) {
+			count += res;
+			if (buf[count-1]=='\0') STOP=TRUE;
+		}		
+    }
+
+    printf("Received string:\n");
+    for (int i = 0; i < 5; ++i)
+    	printf("%x\n",buf[i] & 0xff);
+
+}
+
+void LLCLOSE(){
+
+}
+
+void LLREAD(){
+
+}
+
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd,c;
     struct termios oldtio,newtio;
-    char buf[255];
 
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0))) {
@@ -55,8 +81,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 1;
+    newtio.c_cc[VMIN]     = 0;
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
@@ -65,14 +91,18 @@ int main(int argc, char** argv)
 
     tcflush(fd, TCIOFLUSH);
 
+    //Set tcs with new struct
     if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
 
-    printf("New termios structure set\nWaiting...\n");
+    //LLOPEN(&fd);
 
+	//Testing old system
     int count = 0;
+    int res = 0;
+    char buf[255];
     while (STOP==FALSE) {
 		if((res = read(fd,buf+count,1)) > 0) {
 			count += res;
@@ -82,11 +112,10 @@ int main(int argc, char** argv)
 
     printf("%s\n", buf);
 
-    //Write back
-    res = write(fd,buf,200);
-    fflush(NULL); 
-
+    //Reset tcs with original struct and close fd
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
+    
+
     return 0;
 }
