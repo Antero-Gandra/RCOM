@@ -16,7 +16,7 @@
 
 volatile int STOP = FALSE;
 
-void LLOPEN(int fd)
+void LLOPEN(int *fd)
 {
 
   const int size = 5;
@@ -36,7 +36,13 @@ void LLOPEN(int fd)
     printf("%x\n",trama_inf[i]&0xff);
   }
 */
-  int res = write(fd, trama_inf, size);
+
+  int res = write(*fd, trama_inf, size);
+  fflush(NULL);
+
+  /*  DEBUG number of bytes sent
+  printf("Sent %d bytes\n", res);
+  */
 }
 
 void LLWRITE()
@@ -83,8 +89,8 @@ int main(int argc, char **argv)
   /* set input mode (non-canonical, no echo,...) */
   newtio.c_lflag = 0;
 
-  newtio.c_cc[VTIME] = 1; /* inter-character timer unused */
-  newtio.c_cc[VMIN] = 0;  /* blocking read until 5 chars received */
+  newtio.c_cc[VTIME] = 0; /* inter-character timer unused */
+  newtio.c_cc[VMIN] = 5;  /* blocking read until 5 chars received */
 
   /*  
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a  
@@ -99,14 +105,7 @@ int main(int argc, char **argv)
     exit(-1);
   }
   fflush(NULL);
-
-  LLOPEN(fd);
-
-  /*  
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar  
-    o indicado no guião  
-  */
-
+  LLOPEN(&fd);
   if (tcsetattr(fd, TCSANOW, &oldtio) == -1)
   {
     perror("tcsetattr");
