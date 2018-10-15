@@ -24,20 +24,29 @@ volatile int STOP=FALSE;
 
 void LLOPEN(int* fd){
 
+    //Wait for command
+    const int size = 5;
 	int res;
-	char buf[5];
+	char buf[size];
 	int count = 0;
-	printf("Waiting...\n");
+	printf("Waiting for command...\n");
     while (STOP==FALSE) {
 		if((res = read((*fd),buf+count,1)) > 0) {
 			count += res;
-			if (buf[count-1]=='\0') STOP=TRUE;
+			if (buf[count-1]=='\0') 
+                STOP=TRUE;
 		}		
     }
 
-    printf("Received string:\n");
-    for (int i = 0; i < 5; ++i)
-    	printf("%x\n",buf[i] & 0xff);
+    //Print command received
+    printf("Received command:\n");
+    for (int i = 0; i < size; ++i)
+    	printf("%x\n",buf[i] & 0xff);   
+
+    //Write back
+    printf("Sending back command...\n");
+    res = write(*fd, buf, size);
+    fflush(NULL); 
 
 }
 
@@ -51,7 +60,7 @@ void LLREAD(){
 
 int main(int argc, char** argv)
 {
-    int fd,c;
+    int fd;
     struct termios oldtio,newtio;
 
     if ( (argc < 2) || 
@@ -81,8 +90,8 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 1;
-    newtio.c_cc[VMIN]     = 0;
+    newtio.c_cc[VTIME]    = 0;
+    newtio.c_cc[VMIN]     = 5;
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
@@ -97,20 +106,7 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
-    //LLOPEN(&fd);
-
-	//Testing old system
-    int count = 0;
-    int res = 0;
-    char buf[255];
-    while (STOP==FALSE) {
-		if((res = read(fd,buf+count,1)) > 0) {
-			count += res;
-			if (buf[count-1]=='\0') STOP=TRUE;
-		}		
-    }
-
-    printf("%s\n", buf);
+    LLOPEN(&fd);
 
     //Reset tcs with original struct and close fd
     tcsetattr(fd,TCSANOW,&oldtio);
