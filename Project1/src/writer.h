@@ -38,4 +38,5 @@
 #define FILE_NAME_SIZE 200
 #define CONTROL_MESSAGE_LEN 20
 #define FRAME_SIZE 6
+#define PH_SIZE 4
 #define FRAGMENT_SIZE 100
