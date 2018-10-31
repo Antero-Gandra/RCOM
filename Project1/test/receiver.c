@@ -12,10 +12,10 @@
 
 volatile int STOP = FALSE;
 struct termios oldtio, newtio;
-int seq_num_to_send = 0;
-int last_seq = 0;
+int seqNum = 0;
+int lastSeq = 0;
 
-void print_hexa(char *str)
+void printHex(char *str)
 {
     int j;
     for (j = 0; j < strlen(str); j++)
@@ -25,7 +25,7 @@ void print_hexa(char *str)
     printf("\n");
 }
 
-void print_hexa_zero(char *str, int len)
+void printHexZero(char *str, int len)
 {
     int j;
     for (j = 0; j < len; j++)
@@ -35,7 +35,7 @@ void print_hexa_zero(char *str, int len)
     printf("\n");
 }
 
-void send_control_message(int fd, int C)
+void lastSeqsendControlMessage(int fd, int C)
 {
     unsigned char message[UA_SIZE];
 
@@ -49,7 +49,7 @@ void send_control_message(int fd, int C)
 }
 
 /* state machine */
-int read_control_message(int fd, int control_character)
+int stateMachineSET(int fd, int controlChar)
 {
     int state = START;
     char *buffer = (char *)malloc((SET_SIZE + 1) * sizeof(char));
@@ -63,7 +63,6 @@ int read_control_message(int fd, int control_character)
         switch (state)
         {
         case START:
-            /* FLAG_RCV */
             if (c == FLAG)
             {
                 buffer[i++] = c;
@@ -72,7 +71,6 @@ int read_control_message(int fd, int control_character)
             break;
 
         case FLAG_RCV:
-            /* A_RCV */
             if (c == A)
             {
                 state = A_RCV;
@@ -89,8 +87,7 @@ int read_control_message(int fd, int control_character)
             break;
 
         case A_RCV:
-            /* C_RCV */
-            if (c == control_character)
+            if (c == controlChar)
             {
                 state = C_RCV;
                 buffer[i++] = c;
@@ -106,8 +103,7 @@ int read_control_message(int fd, int control_character)
             break;
 
         case C_RCV:
-            /* BCC_OK */
-            if (c == (A ^ control_character))
+            if (c == (A ^ controlChar))
             {
                 state = BCC_OK;
                 buffer[i++] = c;
@@ -121,7 +117,6 @@ int read_control_message(int fd, int control_character)
             break;
 
         case BCC_OK:
-            /* FLAG_RCV */
             if (c == FLAG)
             {
                 printf("Final flag received. Message received completely\n");
@@ -141,99 +136,95 @@ int read_control_message(int fd, int control_character)
     return TRUE;
 }
 
-int check_BCC2(char *message, int message_len)
+int checkBCC2(char *message, int messageSize)
 {
     int i;
     char BCC2 = message[4]; /* start from the information, after BCC1 */
 
-    for (i = 5; i < message_len - 2; i++)
+    for (i = 5; i < messageSize - 2; i++)
     {
         BCC2 ^= message[i];
     }
-    return BCC2 == message[message_len - 2];
+    return BCC2 == message[messageSize - 2];
 }
 
 int llread(int fd, char *buffer)
 {
     int state = START;
-    char c, control_character;
-    int rej = 0, count_read_char = 0;
+    char c, controlChar;
+    int rej = 0, countChars = 0;
 
     while (state != STOP_STATE)
     {
         read(fd, &c, 1);
-        count_read_char += 1;
+        countChars += 1;
 
         switch (state)
         {
         case START:
-            /* FLAG_RCV */
             if (c == FLAG)
             {
-                buffer[count_read_char - 1] = c;
+                buffer[countChars - 1] = c;
                 state = FLAG_RCV;
             }
             break;
 
         case FLAG_RCV:
-            /* A_RCV */
             if (c == A)
             {
                 state = A_RCV;
-                buffer[count_read_char - 1] = c;
+                buffer[countChars - 1] = c;
             }
             else if (c == FLAG)
                 state = FLAG_RCV;
             else
             {
                 memset(buffer, MAX_DATA_SIZE, 0);
-                count_read_char = 0;
+                countChars = 0;
                 state = START;
             }
             break;
 
         case A_RCV:
-            /* C_RCV */
             if (c == C_0)
             {
 
-                seq_num_to_send = 1;
+                seqNum = 1;
                 state = C_RCV;
-                buffer[count_read_char - 1] = c;
-                control_character = c;
+                buffer[countChars - 1] = c;
+                controlChar = c;
             }
             else if (c == C_1)
             {
 
-                seq_num_to_send = 0;
+                seqNum = 0;
                 state = C_RCV;
-                buffer[count_read_char - 1] = c;
-                control_character = c;
+                buffer[countChars - 1] = c;
+                controlChar = c;
             }
             else if (c == FLAG)
             {
-                control_character = c;
+                controlChar = c;
                 state = FLAG_RCV;
             }
             else
             {
                 memset(buffer, MAX_DATA_SIZE, 0);
-                count_read_char = 0;
+                countChars = 0;
                 state = START;
             }
             break;
 
         case C_RCV:
-            /* BCC_OK */
-            if (c == (A ^ control_character))
+            if (c == (A ^ controlChar))
             {
                 state = BCC_OK;
-                buffer[count_read_char - 1] = c;
+                buffer[countChars - 1] = c;
             }
             else
             {
                 memset(buffer, MAX_DATA_SIZE, 0);
-                count_read_char = 0;
+                countChars = 0;
                 state = START;
             }
             break;
@@ -241,14 +232,14 @@ int llread(int fd, char *buffer)
         case ESCAPE_STATE:
             if (c == 0x5E)
             { // 0x7D 0x5E => 0x7E (FLAG)
-                count_read_char--;
-                buffer[count_read_char - 1] = FLAG;
+                countChars--;
+                buffer[countChars - 1] = FLAG;
                 state = BCC_OK;
             }
             else if (c == 0x5D)
             { // 0x7D 0x5D => 0x7D (escape_character)
-                count_read_char--;
-                buffer[count_read_char - 1] = escape_character;
+                countChars--;
+                buffer[countChars - 1] = escape_character;
                 state = BCC_OK;
             }
             else
@@ -261,17 +252,17 @@ int llread(int fd, char *buffer)
         case BCC_OK:
             if (c == FLAG)
             {
-                buffer[count_read_char - 1] = c;
-                if (check_BCC2(buffer, count_read_char))
+                buffer[countChars - 1] = c;
+                if (checkBCC2(buffer, countChars))
                 {
-                    if (seq_num_to_send == 1)
+                    if (seqNum == 1)
                     {
-                        send_control_message(fd, RR_1);
+                        lastSeqsendControlMessage(fd, RR_1);
                         printf("Sent RR_1\n");
                     }
                     else
                     {
-                        send_control_message(fd, RR_0);
+                        lastSeqsendControlMessage(fd, RR_0);
                         printf("Sent RR_0\n");
                     }
 
@@ -280,15 +271,15 @@ int llread(int fd, char *buffer)
                 else
                 {
                     rej = 1;
-                    if (seq_num_to_send == 0)
+                    if (seqNum == 0)
                     {
-                        send_control_message(fd, REJ_0);
+                        lastSeqsendControlMessage(fd, REJ_0);
                         printf("Sent REJ_0\n");
                     }
 
                     else
                     {
-                        send_control_message(fd, REJ_1);
+                        lastSeqsendControlMessage(fd, REJ_1);
                         printf("Sent REJ_1\n");
                     }
                     state = STOP_STATE;
@@ -300,7 +291,7 @@ int llread(int fd, char *buffer)
             }
             else
             {
-                buffer[count_read_char - 1] = c;
+                buffer[countChars - 1] = c;
             }
             break;
         }
@@ -309,32 +300,28 @@ int llread(int fd, char *buffer)
     if (rej)
         return 0;
 
-    return count_read_char;
+    return countChars;
 }
 
 int llopen(int fd)
 {
 
     if (tcgetattr(fd, &oldtio) == ERR)
-    { /* save current port settings */
+    {
         perror("tcgetattr");
         exit(ERR);
     }
 
-    /* initialize with 0 the memory for the newtio structure */
     bzero(&newtio, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
     newtio.c_oflag = 0;
 
-    /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME] = 1; /* inter-character timer value */
-    newtio.c_cc[VMIN] = 0;  /* The read will be satisfied if a single
-                              character is read, or TIME is exceeded
-                              (t = TIME *0.1 s). If TIME is exceeded,
-                              no character will be returned. */
+    newtio.c_cc[VTIME] = 1;
+    newtio.c_cc[VMIN] = 0;
+
     tcflush(fd, TCIOFLUSH);
 
     if (tcsetattr(fd, TCSANOW, &newtio) == ERR)
@@ -344,12 +331,12 @@ int llopen(int fd)
     }
     printf("New termios structure set\n");
 
-    /*********** until here the code is provided on moodle ***********/
+    //Own code:
 
-    if (read_control_message(fd, SET_C))
+    if (stateMachineSET(fd, SET_C))
     {
         printf("Received SET\n");
-        send_control_message(fd, UA_C);
+        lastSeqsendControlMessage(fd, UA_C);
         printf("Sent UA\n");
     }
 
@@ -361,30 +348,30 @@ void llclose(int fd)
     int state;
 
     state = DISC_C;
-    if (read_control_message(fd, state))
+    if (stateMachineSET(fd, state))
     {
         printf("Received DISC\n");
-        send_control_message(fd, state);
+        lastSeqsendControlMessage(fd, state);
     }
 
     state = UA_C;
-    if (read_control_message(fd, state))
+    if (stateMachineSET(fd, state))
         printf("Receiver terminated\n");
 
     tcsetattr(fd, TCSANOW, &oldtio);
 }
 
-int is_trailer_message(char *first, int size_first, char *last, int size_last)
+int checkTrailer(char *first, int sizeF, char *last, int sizeL)
 {
 
-    if (size_first != size_last || last[0] != '3')
+    if (sizeF != sizeL || last[0] != '3')
     {
         return FALSE;
     }
     else
     {
         int i;
-        for (i = 1; i < size_first - 2; i++)
+        for (i = 1; i < sizeF - 2; i++)
         {
             if (first[i] != last[i])
             {
@@ -396,20 +383,20 @@ int is_trailer_message(char *first, int size_first, char *last, int size_last)
     return FALSE;
 }
 
-int compare_messages(char *previous, int previous_size, char *new, int size_new)
+int compareMessages(char *previous, int previousSize, char *new, int newSize)
 {
-    printf("\nPrevious size: %d\n", previous_size);
-    print_hexa_zero(previous, previous_size);
-    printf("\nNew size: %d\n", size_new);
-    print_hexa_zero(new, size_new);
-    if (previous_size != size_new)
+    printf("\nPrevious size: %d\n", previousSize);
+    print_hexa_zero(previous, previousSize);
+    printf("\nNew size: %d\n", newSize);
+    print_hexa_zero(new, newSize);
+    if (previousSize != newSize)
     {
         return 1;
     }
     else
     {
         int i;
-        for (i = 0; i < size_new; i++)
+        for (i = 0; i < newSize; i++)
         {
             if (previous[i] != new[i])
             {
@@ -421,30 +408,30 @@ int compare_messages(char *previous, int previous_size, char *new, int size_new)
     return 0;
 }
 
-char *remove_header(char *message, char message_size, int *new_size, int *info_len)
+char *removeHeader(char *message, char messageSize, int *newSize, int *infoSize)
 {
 
     /*Remove Header, Frame and Trailer*/
 
     int L1, L2;
 
-    char *new_message = (char *)malloc(message_size);
+    char *new_message = (char *)malloc(messageSize);
     L2 = message[6];
     L1 = message[7];
 
-    *info_len = L1 + 256 * L2;
-    printf("info_len: %d \n", *info_len);
+    *infoSize = L1 + 256 * L2;
+    printf("infoSize: %d \n", *infoSize);
     int i;
-    for (i = 0; i < *info_len; i++)
+    for (i = 0; i < *infoSize; i++)
     {
         new_message[i] = message[i + 8];
     }
-    *new_size = *info_len;
+    *newSize = *infoSize;
 
     return new_message;
 }
 
-void name_file(char *message, char *name)
+void fileName(char *message, char *name)
 {
     memset(name, 0, 100);
 
@@ -463,7 +450,7 @@ void name_file(char *message, char *name)
     name[L2] = '\0';
 }
 
-off_t size_of_file(char *message)
+off_t fileSize(char *message)
 {
 
     int L1 = message[2] - '0';
@@ -486,15 +473,15 @@ off_t size_of_file(char *message)
     return dec;
 }
 
-void receive_file(int fd)
+void receiveFile(int fd)
 {
 
-    int message_size;
+    int messageSize;
     FILE *file_out;
-    int size_first_message;
+    int sizeF_message;
     int size_without_header;
-    int info_len = 0;
-    int previous_size;
+    int infoSize = 0;
+    int previousSize;
 
     int compared;
     off_t file_index = 0;
@@ -505,22 +492,22 @@ void receive_file(int fd)
     char *message_to_compare = (char *)malloc((MAX_DATA_SIZE) * sizeof(char));
     char *file_name = (char *)malloc(100 * sizeof(char));
 
-    size_first_message = llread(fd, first_message);
+    sizeF_message = llread(fd, first_message);
 
     int n = 4;
     int i;
-    for (i = 0; i < size_first_message; i++)
+    for (i = 0; i < sizeF_message; i++)
     {
         new_message[i] = first_message[n];
         n++;
     }
-    size_first_message -= 4;
+    sizeF_message -= 4;
 
-    name_file(new_message, file_name);
+    fileName(new_message, file_name);
 
     printf("File name: %s\n", file_name);
 
-    off_t file_size = size_of_file(new_message);
+    off_t file_size = fileSize(new_message);
 
     if (file_size == 0)
     {
@@ -536,18 +523,18 @@ void receive_file(int fd)
     {
 
         printf("***Packet number %d***\n", packet_number);
-        printf("seq_num_to_send: %d\n", seq_num_to_send);
+        printf("seqNum: %d\n", seqNum);
 
         memset(message, 0, FRAGMENT_SIZE);
-        message_size = llread(fd, message);
-        printf("Message size: %d\n", message_size);
+        messageSize = llread(fd, message);
+        printf("Message size: %d\n", messageSize);
 
         if (packet_number > 1)
         {
-            compared = compare_messages(previous_message, previous_size, message, message_size);
+            compared = compareMessages(previous_message, previousSize, message, messageSize);
         }
 
-        if (message_size == 0 || message_size == ERR || compared == 0)
+        if (messageSize == 0 || messageSize == ERR || compared == 0)
         {
             if (compared = 0)
             {
@@ -558,27 +545,27 @@ void receive_file(int fd)
         }
 
         memset(previous_message, 0, FRAGMENT_SIZE);
-        memcpy(previous_message, message, message_size);
-        previous_size = message_size;
+        memcpy(previous_message, message, messageSize);
+        previousSize = messageSize;
 
         int n = 4;
         int i = 0;
-        for (i = 0; i < message_size; i++)
+        for (i = 0; i < messageSize; i++)
         {
             message_to_compare[i] = message[n];
             n++;
         }
-        int message_to_compare_size = message_size - 4;
+        int message_to_compare_size = messageSize - 4;
 
-        if (is_trailer_message(new_message, size_first_message, message_to_compare, message_to_compare_size))
+        if (checkTrailer(new_message, sizeF_message, message_to_compare, message_to_compare_size))
         {
             printf("Trailer Message!\n");
             break;
         }
 
-        message = remove_header(message, message_size, &size_without_header, &info_len);
+        message = removeHeader(message, messageSize, &size_without_header, &infoSize);
 
-        fwrite(message, 1, info_len, file_out);
+        fwrite(message, 1, infoSize, file_out);
         packet_number++;
     }
 
@@ -598,11 +585,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    /*
-  Open serial port device for reading and writing and not as controlling tty
-  because we don't want to get killed if linenoise sends CTRL-C.
-*/
-
     fd = open(argv[1], O_RDWR | O_NOCTTY);
     if (fd < 0)
     {
@@ -611,9 +593,7 @@ int main(int argc, char **argv)
     }
 
     llopen(fd);
-
-    receive_file(fd);
-
+    receiveFile(fd);
     llclose(fd);
 
     close(fd);
