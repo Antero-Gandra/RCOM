@@ -70,6 +70,8 @@ typedef struct
     MessageError error;
 } Message;
 
+#define BIT(n) (0x01 << n)
+
 typedef struct
 {
 
@@ -93,6 +95,7 @@ void sendCommand(int fd, Control com);
 
 int messageIsCommand(Message *msg, Command command);
 Message *receiveMessage(int fd);
+unsigned char processBCC(const unsigned char* buf, int size);
 
 int stuff(unsigned char **buf, int bufSize);
 int destuff(unsigned char **buf, int bufSize);

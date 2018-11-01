@@ -235,65 +235,88 @@ Message *receiveMessage(int fd)
 
     size = destuff(&message, size);
 
-	unsigned char A = message[1];
-	unsigned char C = message[2];
-	unsigned char BCC1 = message[3];
+    unsigned char A = message[1];
+    unsigned char C = message[2];
+    unsigned char BCC1 = message[3];
 
-	if (BCC1 != (A ^ C)) {
-		printf("ERROR: invalid BCC1.\n");
+    if (BCC1 != (A ^ C))
+    {
+        printf("ERROR: invalid BCC1.\n");
 
-		free(message);
+        free(message);
 
-		msg->type = INVALID;
-		msg->error = BCC1_ERROR;
+        msg->type = INVALID;
+        msg->error = BCC1_ERROR;
 
-		return msg;
-	}
+        return msg;
+    }
 
-	if (msg->type == COMMAND) {
-		// get message command
-		msg->command = getCommandWithControlField(message[2]);
+    if (msg->type == COMMAND)
+    {
+        // get message command
 
-		// get command control field
-		Control controlField = message[2];
+        switch (message[2] & 0x0F)
+        {
+        case C_SET:
+            msg->command = SET;
+        case C_UA:
+            msg->command = UA;
+        case C_RR:
+            msg->command = RR;
+        case C_REJ:
+            msg->command = REJ;
+        case C_DISC:
+            msg->command = DISC;
+        default:
+            printf("ERROR: control field not recognized.\n");
+            msg->command = SET;
+        }
 
-		char commandStr[5 * sizeof(char)];
-		getCommandControlField(commandStr, msg->command);
+        // get command control field
+        Control controlField = message[2];
 
-		if (DEBUG_MODE)
-			printf("Received command: %s.\n", commandStr);
+        if (msg->command == RR || msg->command == REJ)
+            msg->nr = (controlField >> 7) & BIT(0);
+    }
+    else if (msg->type == DATA)
+    {
+        msg->data.messageSize = size - 6 * sizeof(char);
 
-		if (msg->command == RR || msg->command == REJ)
-			msg->nr = (controlField >> 7) & BIT(0);
+        unsigned char calcBCC2 = processBCC(&message[4], msg->data.messageSize);
+        unsigned char BCC2 = message[4 + msg->data.messageSize];
 
-	} else if (msg->type == DATA) {
-		msg->data.messageSize = size -  6 * sizeof(char);
+        if (calcBCC2 != BCC2)
+        {
+            printf("ERROR: invalid BCC2: 0x%02x != 0x%02x.\n", calcBCC2, BCC2);
 
-		unsigned char calcBCC2 = processBCC(&message[4], msg->data.messageSize);
-		unsigned char BCC2 = message[4 + msg->data.messageSize];
+            free(message);
 
-		if (calcBCC2 != BCC2) {
-			printf("ERROR: invalid BCC2: 0x%02x != 0x%02x.\n", calcBCC2, BCC2);
+            msg->type = INVALID;
+            msg->error = BCC2_ERROR;
 
-			free(message);
+            return msg;
+        }
 
-			msg->type = INVALID;
-			msg->error = BCC2_ERROR;
+        msg->ns = (message[2] >> 6) & BIT(0);
 
-			return msg;
-		}
+        // copy message
+        msg->data.message = malloc(msg->data.messageSize);
+        memcpy(msg->data.message, &message[4], msg->data.messageSize);
+    }
 
-		msg->ns = (message[2] >> 6) & BIT(0);
+    free(message);
 
-		// copy message
-		msg->data.message = malloc(msg->data.messageSize);
-		memcpy(msg->data.message, &message[4], msg->data.messageSize);
-	}
+    return msg;
+}
 
-	free(message);
+unsigned char processBCC(const unsigned char* buf, int size) {
+	unsigned char BCC = 0;
 
-	return msg;
+	int i = 0;
+	for (; i < size; i++)
+		BCC ^= buf[i];
 
+	return BCC;
 }
 
 //Stuffing
