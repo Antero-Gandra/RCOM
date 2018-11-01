@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     //File descriptor of connection
     int fd;
 
-    //TODO Open connection
+    //Open connection
     fd = llopen();
 
     //TODO Sent file

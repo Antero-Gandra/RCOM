@@ -17,12 +17,14 @@ void alarmHandler(int signal)
 
     printf("Connection time out!\n");
 
+    //Set alarm again
     alarm(settings->timeout);
 }
 
 void setAlarm()
 {
 
+    //Setup
     struct sigaction action;
     action.sa_handler = alarmHandler;
     sigemptyset(&action.sa_mask);
@@ -30,6 +32,7 @@ void setAlarm()
 
     sigaction(SIGALRM, &action, NULL);
 
+    //Set alarm
     alarmFired = FALSE;
     alarm(settings->timeout);
 }
@@ -37,6 +40,7 @@ void setAlarm()
 void stopAlarm()
 {
 
+    //Setup
     struct sigaction action;
     action.sa_handler = alarmHandler;
     sigemptyset(&action.sa_mask);
@@ -44,5 +48,6 @@ void stopAlarm()
 
     sigaction(SIGALRM, &action, NULL);
 
+    //Block alarm
     alarm(0);
 }

@@ -63,9 +63,9 @@ void sendCommand(int fd, Control com)
     free(command);
 }
 
-int identifyMessageCommand(Message *msg, Command command)
+int identifyMessageControl(Message *msg, Control command)
 {
-    return msg->type == COMMAND && msg->command == command;
+    return msg->type == COMMAND && msg->control == command;
 }
 
 Message *receiveMessage(int fd)
@@ -80,16 +80,17 @@ Message *receiveMessage(int fd)
     int size = 0;
     unsigned char *message = malloc(settings->messageDataMaxSize);
 
+    //State Machine
     volatile int done = FALSE;
     while (!done)
     {
-        unsigned char c;
+        unsigned char ch;
 
         //Not stopping yet
         if (state != STOP)
         {
             //Read
-            int numReadBytes = read(fd, &c, 1);
+            int numReadBytes = read(fd, &ch, 1);
 
             //Empty
             if (!numReadBytes)
@@ -106,31 +107,31 @@ Message *receiveMessage(int fd)
             }
         }
 
-        //State Machine
+        //State jumping
         switch (state)
         {
         case START:
-            if (c == FLAG)
+            if (ch == FLAG)
             {
                 if (DEBUG_MODE)
                     printf("START: FLAG received. Going to FLAG_RCV.\n");
 
-                message[size++] = c;
+                message[size++] = ch;
 
                 state = FLAG_RCV;
             }
             break;
         case FLAG_RCV:
-            if (c == A)
+            if (ch == A)
             {
                 if (DEBUG_MODE)
                     printf("FLAG_RCV: A received. Going to A_RCV.\n");
 
-                message[size++] = c;
+                message[size++] = ch;
 
                 state = A_RCV;
             }
-            else if (c != FLAG)
+            else if (ch != FLAG)
             {
                 size = 0;
 
@@ -138,16 +139,16 @@ Message *receiveMessage(int fd)
             }
             break;
         case A_RCV:
-            if (c != FLAG)
+            if (ch != FLAG)
             {
                 if (DEBUG_MODE)
                     printf("A_RCV: C received. Going to C_RCV.\n");
 
-                message[size++] = c;
+                message[size++] = ch;
 
                 state = C_RCV;
             }
-            else if (c == FLAG)
+            else if (ch == FLAG)
             {
                 size = 1;
 
@@ -161,16 +162,16 @@ Message *receiveMessage(int fd)
             }
             break;
         case C_RCV:
-            if (c == (message[1] ^ message[2]))
+            if (ch == (message[1] ^ message[2]))
             {
                 if (DEBUG_MODE)
                     printf("C_RCV: BCC received. Going to BCC_OK.\n");
 
-                message[size++] = c;
+                message[size++] = ch;
 
                 state = BCC_OK;
             }
-            else if (c == FLAG)
+            else if (ch == FLAG)
             {
                 if (DEBUG_MODE)
                     printf("C_RCV: FLAG received. Going back to FLAG_RCV.\n");
@@ -190,28 +191,22 @@ Message *receiveMessage(int fd)
             }
             break;
         case BCC_OK:
-            if (c == FLAG)
+            if (ch == FLAG)
             {
                 if (msg->type == INVALID)
                     msg->type = COMMAND;
 
-                message[size++] = c;
+                message[size++] = ch;
 
                 state = STOP;
 
                 if (DEBUG_MODE)
                     printf("BCC_OK: FLAG received. Going to STOP.\n");
             }
-            else if (c != FLAG)
+            else if (ch != FLAG)
             {
                 if (msg->type == INVALID)
                     msg->type = DATA;
-                else if (msg->type == COMMAND)
-                {
-                    printf("Undefined behaviour\n");
-                    state = START;
-                    continue;
-                }
 
                 //Need to expand space
                 if (size % settings->messageDataMaxSize == 0)
@@ -220,7 +215,7 @@ Message *receiveMessage(int fd)
                     message = (unsigned char *)realloc(message, mFactor * settings->messageDataMaxSize);
                 }
 
-                message[size++] = c;
+                message[size++] = ch;
             }
             break;
         case STOP:
@@ -239,7 +234,7 @@ Message *receiveMessage(int fd)
     unsigned char C = message[2];
     unsigned char BCC1 = message[3];
 
-    //BCC1 check
+    //BCC1 check (header)
     if (BCC1 != (A ^ C))
     {
         printf("ERROR: invalid BCC1.\n");
@@ -252,6 +247,7 @@ Message *receiveMessage(int fd)
         return msg;
     }
 
+    //Message is a command
     if (msg->type == COMMAND)
     {
 
@@ -259,38 +255,39 @@ Message *receiveMessage(int fd)
         switch (message[2] & 0x0F)
         {
         case C_SET:
-            msg->command = SET;
+            msg->control = C_SET;
             break;
         case C_UA:
-            msg->command = UA;
+            msg->control = C_UA;
             break;
         case C_RR:
-            msg->command = RR;
+            msg->control = C_RR;
             break;
         case C_REJ:
-            msg->command = REJ;
+            msg->control = C_REJ;
             break;
         case C_DISC:
-            msg->command = DISC;
+            msg->control = C_DISC;
             break;
         default:
             printf("ERROR: control field not recognized.\n");
-            msg->command = SET;
+            msg->control = C_SET;
         }
 
-        //Control field
-        Control controlField = message[2];
+        //Control
+        Control control = message[2];
 
-        if (msg->command == RR || msg->command == REJ)
-            msg->nr = (controlField >> 7) & BIT(0);
+        if (msg->control == C_RR || msg->control == C_REJ)
+            msg->nr = (control >> 7) & BIT(0);
     }
+    //Message is data
     else if (msg->type == DATA)
     {
-        msg->data.messageSize = size - 6 * sizeof(char);
+        msg->data.size = size - 6 * sizeof(char);
 
-        //Check BCC2
-        unsigned char calcBCC2 = processBCC(&message[4], msg->data.messageSize);
-        unsigned char BCC2 = message[4 + msg->data.messageSize];
+        //Check BCC2 (data)
+        unsigned char calcBCC2 = processBCC(&message[4], msg->data.size);
+        unsigned char BCC2 = message[4 + msg->data.size];
 
         if (calcBCC2 != BCC2)
         {
@@ -307,8 +304,8 @@ Message *receiveMessage(int fd)
         msg->ns = (message[2] >> 6) & BIT(0);
 
         //Copy the message
-        msg->data.message = malloc(msg->data.messageSize);
-        memcpy(msg->data.message, &message[4], msg->data.messageSize);
+        msg->data.message = malloc(msg->data.size);
+        memcpy(msg->data.message, &message[4], msg->data.size);
     }
 
     free(message);
@@ -447,7 +444,7 @@ int llopen()
             }
 
             //Receive response
-            if (identifyMessageCommand(receiveMessage(fd), UA))
+            if (identifyMessageControl(receiveMessage(fd), C_UA))
                 connected = 1;
         }
 
@@ -460,7 +457,7 @@ int llopen()
         while (!connected)
         {
             //Receive setup and respond
-            if (identifyMessageCommand(receiveMessage(fd), SET))
+            if (identifyMessageControl(receiveMessage(fd), C_SET))
             {
                 sendCommand(fd, C_UA);
                 connected = 1;

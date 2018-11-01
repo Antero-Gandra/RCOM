@@ -23,15 +23,6 @@ typedef enum
 
 typedef enum
 {
-    SET,
-    UA,
-    RR,
-    REJ,
-    DISC
-} Command;
-
-typedef enum
-{
     C_SET = 0x03,
     C_UA = 0x07,
     C_RR = 0x05,
@@ -51,23 +42,24 @@ typedef enum
     INPUT_OUTPUT_ERROR,
     BCC1_ERROR,
     BCC2_ERROR
-} MessageError;
+} ErrorType;
 
 typedef struct
 {
     MessageType type;
+    ErrorType error;
 
-    int ns, nr;
+    int ns;
+    int nr;
 
-    Command command;
+    Control control;
 
     struct
     {
         unsigned char *message;
-        int messageSize;
+        int size;
     } data;
 
-    MessageError error;
 } Message;
 
 #define BIT(n) (0x01 << n)
@@ -93,7 +85,7 @@ void connectionSettings(char *port, Mode mode);
 
 void sendCommand(int fd, Control com);
 
-int identifyMessageCommand(Message *msg, Command command);
+int identifyMessageControl(Message *msg, Control command);
 Message *receiveMessage(int fd);
 unsigned char processBCC(const unsigned char *buf, int size);
 

@@ -10,7 +10,7 @@ LDFLAGS = -g
 # source files
 SRC = $(wildcard src/*.c)
 
-OBJ = $(patsubst src%, buildtemp%.o, $(SRC))
+OBJ = $(patsubst src%, build%.o, $(SRC))
 
 OUT = app
 
@@ -18,8 +18,8 @@ OUT = app
 
 default: $(OUT)
 
-buildtemp/%.o: src/%
-	mkdir -p buildtemp
+build/%.o: src/%
+	mkdir -p build
 	$(CCC) $(INCLUDES) $(CCFLAGS) -c $< -o $@
 
 $(OUT): $(OBJ)
