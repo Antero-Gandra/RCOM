@@ -85,13 +85,13 @@ Message *receiveMessage(int fd)
     {
         unsigned char c;
 
-        // if not stopping
+        //Not stopping yet
         if (state != STOP)
         {
-            // read message
+            //Read
             int numReadBytes = read(fd, &c, 1);
 
-            // if nothing was read
+            //Empty
             if (!numReadBytes)
             {
                 if (DEBUG_MODE)
@@ -106,6 +106,7 @@ Message *receiveMessage(int fd)
             }
         }
 
+        //State Machine
         switch (state)
         {
         case START:
@@ -232,7 +233,66 @@ Message *receiveMessage(int fd)
         }
     }
 
-    return NULL;
+    size = destuff(&message, size);
+
+	unsigned char A = message[1];
+	unsigned char C = message[2];
+	unsigned char BCC1 = message[3];
+
+	if (BCC1 != (A ^ C)) {
+		printf("ERROR: invalid BCC1.\n");
+
+		free(message);
+
+		msg->type = INVALID;
+		msg->error = BCC1_ERROR;
+
+		return msg;
+	}
+
+	if (msg->type == COMMAND) {
+		// get message command
+		msg->command = getCommandWithControlField(message[2]);
+
+		// get command control field
+		Control controlField = message[2];
+
+		char commandStr[5 * sizeof(char)];
+		getCommandControlField(commandStr, msg->command);
+
+		if (DEBUG_MODE)
+			printf("Received command: %s.\n", commandStr);
+
+		if (msg->command == RR || msg->command == REJ)
+			msg->nr = (controlField >> 7) & BIT(0);
+
+	} else if (msg->type == DATA) {
+		msg->data.messageSize = size -  6 * sizeof(char);
+
+		unsigned char calcBCC2 = processBCC(&message[4], msg->data.messageSize);
+		unsigned char BCC2 = message[4 + msg->data.messageSize];
+
+		if (calcBCC2 != BCC2) {
+			printf("ERROR: invalid BCC2: 0x%02x != 0x%02x.\n", calcBCC2, BCC2);
+
+			free(message);
+
+			msg->type = INVALID;
+			msg->error = BCC2_ERROR;
+
+			return msg;
+		}
+
+		msg->ns = (message[2] >> 6) & BIT(0);
+
+		// copy message
+		msg->data.message = malloc(msg->data.messageSize);
+		memcpy(msg->data.message, &message[4], msg->data.messageSize);
+	}
+
+	free(message);
+
+	return msg;
 
 }
 
