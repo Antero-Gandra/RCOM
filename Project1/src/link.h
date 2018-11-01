@@ -95,3 +95,4 @@ int destuff(unsigned char **buf, int bufSize);
 
 int llopen();
 int llwrite(int fd, const unsigned char* buf, int bufSize);
+int llread(int fd, unsigned char** message);

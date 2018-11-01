@@ -60,14 +60,13 @@ int main(int argc, char **argv)
     //Open connection
     fd = llopen();
 
-    //TODO Send/Receive file
+    //Send/Receive file
     if (settings->mode == WRITER)
         sendFile(argv[2], fd);
-    //else
-    //receiveFile();
+    else
+        receiveFile(fd);
 
     //TODO Close connection
-
 
     return 0;
 }
@@ -152,36 +151,38 @@ void sendControl(int fd, int cmd, char *fileS, char *fileName)
     }
 }
 
-void sendData(int fd, int N, const char* buffer, int length) {
+void sendData(int fd, int N, const char *buffer, int length)
+{
 
     //Construct header
-	unsigned char C = CTRL_DATA;
-	unsigned char L2 = length / 256;
-	unsigned char L1 = length % 256;
+    unsigned char C = CTRL_DATA;
+    unsigned char L2 = length / 256;
+    unsigned char L1 = length % 256;
 
-	//Package size
-	int packageSize = 4 + length;
+    //Package size
+    int packageSize = 4 + length;
 
-	//Allocate all space
-	unsigned char* package = (unsigned char*) malloc(packageSize);
+    //Allocate all space
+    unsigned char *package = (unsigned char *)malloc(packageSize);
 
-	//Package Header
-	package[0] = C;
-	package[1] = N;
-	package[2] = L2;
-	package[3] = L1;
+    //Package Header
+    package[0] = C;
+    package[1] = N;
+    package[2] = L2;
+    package[3] = L1;
 
-	//Copy chunk to package
-	memcpy(&package[4], buffer, length);
+    //Copy chunk to package
+    memcpy(&package[4], buffer, length);
 
-	//Write package
-	if (!llwrite(fd, package, packageSize)) {
-		printf("ERROR: Could not send data package to link\n");
-		free(package);
+    //Write package
+    if (!llwrite(fd, package, packageSize))
+    {
+        printf("ERROR: Could not send data package to link\n");
+        free(package);
         exit(ERROR);
-	}
+    }
 
-	free(package);
+    free(package);
 }
 
 void sendFile(char *fileName, int fd)
@@ -216,12 +217,168 @@ void sendFile(char *fileName, int fd)
     free(fileBuf);
 
     //Close file
-    if (fclose(file) != 0) {
-		printf("ERROR: Unable to close file.\n");
-		exit(ERROR);
-	}
+    if (fclose(file) != 0)
+    {
+        printf("ERROR: Unable to close file.\n");
+        exit(ERROR);
+    }
 
     //End Packet
     sendControl(fd, CTRL_END, "0", "");
+}
 
+void receiveControl(int fd, int *controlPackageType, int *fileLength, char **fileName)
+{
+
+    //Read package
+    unsigned char *package;
+    if (llread(fd, &package) < 0)
+    {
+        printf("ERROR: Could not read control package from link\n");
+        exit(ERROR);
+    }
+
+    //Control package type
+    *controlPackageType = package[0];
+
+    //Check if it's end
+    if (*controlPackageType == CTRL_END)
+        return;
+
+    //If not then extract information
+    int i = 0, index = 1, octs = 0;
+    for (i = 0; i < 2; i++)
+    {
+        int paramType = package[index++];
+
+        //Parameter is file size
+        if (paramType == FILE_SIZE)
+        {
+            octs = (int)package[index++];
+
+            char *length = malloc(octs);
+            memcpy(length, &package[index], octs);
+
+            *fileLength = atoi(length);
+            free(length);
+        }
+        //Parameter is file name
+        else if (paramType == FILE_NAME)
+        {
+            octs = (unsigned char)package[index++];
+            memcpy(*fileName, &package[index], octs);
+        }
+    }
+}
+
+void receiveData(int fd, int* N, char** buf, int* length) {
+	unsigned char* package;
+
+	//Read package
+	int size = llread(fd, &package);
+	if (size < 0) {
+		printf("ERROR: Could not read data package from link\n");
+		exit(ERROR);
+	}
+
+    //Extract information
+	int C = package[0];
+	*N = (unsigned char) package[1];
+	int L2 = package[2];
+	int L1 = package[3];
+
+	//Check if it's Data
+	if (C != CTRL_DATA) {
+		printf("ERROR: Expected data package but received other\n");
+		exit(ERROR);
+	}
+
+	//Size of file chunk
+	*length = L1 + 256 * L2;
+
+	//File chunk
+	*buf = malloc(*length);
+
+	//Copy to buffer
+	memcpy(*buf, &package[4], *length);
+
+	free(package);
+
+}
+
+void receiveFile(int fd)
+{
+
+    int controlStart;
+    int fileSize;
+    char *fileName;
+
+    //Receive control
+    receiveControl(fd, &controlStart, &fileSize, &fileName);
+
+    //Not start control package
+    if (controlStart != CTRL_START)
+    {
+        printf("ERROR: Wrong control package received, expected CTRL_START");
+        exit(ERROR);
+    }
+
+    //Create file
+    FILE *file = fopen(fileName, "wb");
+    if (file == NULL)
+    {
+        printf("ERROR: Failed to create output\n");
+        exit(ERROR);
+    }
+
+    printf("Created output file: %s\n", fileName);
+    printf("Expected file size: %d (bytes)\n", fileSize);
+
+    //Receive data
+    int total = 0, N = -1;
+    while (total != fileSize)
+    {
+        int lastN = N;
+        char *fileBuf = NULL;
+        int length = 0;
+
+        //Receive data
+        receiveData(fd, &N, &fileBuf, &length);
+
+        //Check sequence
+        if (N != 0 && lastN + 1 != N)
+        {
+            printf("ERROR: Received sequence no. was %d instead of %d.\n", N, lastN + 1);
+            free(fileBuf);
+            exit(ERROR);
+        }
+
+        //Write to file
+        fwrite(fileBuf, sizeof(char), length, file);
+
+        free(fileBuf);
+
+        //Add to total
+        total += length;
+    }
+
+    //Close file
+    if (fclose(file) != 0)
+    {
+        printf("ERROR: Failed to close file\n");
+        exit(ERROR);
+    }
+
+    //Receive end control
+    int controlPackageTypeReceived = -1;
+    receiveControl(fd, &controlPackageTypeReceived, 0, NULL);
+
+    //Not end control package
+    if (controlPackageTypeReceived != CTRL_END)
+    {
+        printf("ERROR: Control field received (%d) is not END.\n", controlPackageTypeReceived);
+        exit(ERROR);
+    }
+
+    printf("File successfully received.\n");
 }

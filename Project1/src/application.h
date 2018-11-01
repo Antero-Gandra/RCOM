@@ -20,3 +20,8 @@ void sendControl(int fd, int cmd, char *fileS, char *fileName);
 void sendData(int fd, int N, const char* buffer, int length);
 
 void sendFile(char *fileName, int fd);
+
+void receiveControl(int fd, int* controlPackageType, int* fileLength, char** fileName);
+void receiveData(int fd, int* N, char** buf, int* length);
+
+void receiveFile(int fd);
