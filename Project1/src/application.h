@@ -9,8 +9,8 @@ typedef enum
 
 typedef enum
 {
-    FILE_NAME,
-    FILE_SIZE
+    FILE_SIZE,
+    FILE_NAME
 } Parameter;
 
 FILE *openFile(char *fileName);

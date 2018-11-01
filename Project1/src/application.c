@@ -125,12 +125,14 @@ void sendControl(int fd, int cmd, char *fileS, char *fileName)
 
     //File size
     controlPackage[index++] = FILE_SIZE;
+    printf("PARAMETER: %d\n",controlPackage[index-1]);
     controlPackage[index++] = strlen(fileS);
     for (i = 0; i < strlen(fileS); i++)
         controlPackage[index++] = fileS[i];
 
     //File name
     controlPackage[index++] = FILE_NAME;
+    printf("PARAMETER: %d\n",controlPackage[index-1]);
     controlPackage[index++] = strlen(fileName);
     for (i = 0; i < strlen(fileName); i++)
         controlPackage[index++] = fileName[i];
@@ -251,6 +253,8 @@ void receiveControl(int fd, int *controlPackageType, int *fileLength, char **fil
     {
         int paramType = package[index++];
 
+        printf("PARAMETER: %d\n",paramType);
+
         //Parameter is file size
         if (paramType == FILE_SIZE)
         {
@@ -265,6 +269,7 @@ void receiveControl(int fd, int *controlPackageType, int *fileLength, char **fil
         //Parameter is file name
         else if (paramType == FILE_NAME)
         {
+            printf("FILE NAME%s\n",&package[index]);
             octs = (unsigned char)package[index++];
             memcpy(*fileName, &package[index], octs);
         }
