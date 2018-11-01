@@ -56,9 +56,7 @@ void sendCommand(int fd, Control com)
 
     //Send command
     if (write(fd, command, commandSize) != (commandMaxSize))
-    {
         printf("ERROR: Could not write %s command.\n", command);
-    }
 
     //Free command
     free(command);
@@ -254,7 +252,6 @@ Message *receiveMessage(int fd)
     if (msg->type == COMMAND)
     {
         // get message command
-
         switch (message[2] & 0x0F)
         {
         case C_SET:
@@ -309,14 +306,15 @@ Message *receiveMessage(int fd)
     return msg;
 }
 
-unsigned char processBCC(const unsigned char* buf, int size) {
-	unsigned char BCC = 0;
+unsigned char processBCC(const unsigned char *buf, int size)
+{
+    unsigned char BCC = 0;
 
-	int i = 0;
-	for (; i < size; i++)
-		BCC ^= buf[i];
+    int i = 0;
+    for (; i < size; i++)
+        BCC ^= buf[i];
 
-	return BCC;
+    return BCC;
 }
 
 //Stuffing
@@ -454,7 +452,7 @@ int llopen()
             //Receive setup and respond
             if (messageIsCommand(receiveMessage(fd), SET))
             {
-                sendCommand(fd, UA);
+                sendCommand(fd, C_UA);
                 connected = 1;
             }
         }
