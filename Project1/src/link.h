@@ -93,9 +93,9 @@ void connectionSettings(char *port, Mode mode);
 
 void sendCommand(int fd, Control com);
 
-int messageIsCommand(Message *msg, Command command);
+int identifyMessageCommand(Message *msg, Command command);
 Message *receiveMessage(int fd);
-unsigned char processBCC(const unsigned char* buf, int size);
+unsigned char processBCC(const unsigned char *buf, int size);
 
 int stuff(unsigned char **buf, int bufSize);
 int destuff(unsigned char **buf, int bufSize);

@@ -8,9 +8,10 @@
 
 int alarmFired = FALSE;
 
-void alarmHandler(int signal) {
-	if (signal != SIGALRM)
-		return;
+void alarmHandler(int signal)
+{
+    if (signal != SIGALRM)
+        return;
 
     alarmFired = TRUE;
 
@@ -19,29 +20,29 @@ void alarmHandler(int signal) {
     alarm(settings->timeout);
 }
 
-void setAlarm() {
+void setAlarm()
+{
 
     struct sigaction action;
-	action.sa_handler = alarmHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
+    action.sa_handler = alarmHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
 
-	sigaction(SIGALRM, &action, NULL);
+    sigaction(SIGALRM, &action, NULL);
 
     alarmFired = FALSE;
     alarm(settings->timeout);
-	
 }
 
-void stopAlarm() {
+void stopAlarm()
+{
 
     struct sigaction action;
-	action.sa_handler = alarmHandler;
-	sigemptyset(&action.sa_mask);
-	action.sa_flags = 0;
+    action.sa_handler = alarmHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
 
-	sigaction(SIGALRM, &action, NULL);
-	
-	alarm(0);
+    sigaction(SIGALRM, &action, NULL);
 
+    alarm(0);
 }

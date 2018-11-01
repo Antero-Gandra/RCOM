@@ -29,6 +29,7 @@ void connectionSettings(char *port, Mode mode)
     settings->mode = mode;
     settings->baudRate = B38400;
     settings->messageDataMaxSize = 512;
+    settings->ns = 0;
     settings->timeout = 3;
     settings->numTries = 3;
 }
@@ -62,13 +63,14 @@ void sendCommand(int fd, Control com)
     free(command);
 }
 
-int messageIsCommand(Message *msg, Command command)
+int identifyMessageCommand(Message *msg, Command command)
 {
     return msg->type == COMMAND && msg->command == command;
 }
 
 Message *receiveMessage(int fd)
 {
+    //Setup message
     Message *msg = (Message *)malloc(sizeof(Message));
     msg->type = INVALID;
     msg->ns = msg->nr = -1;
@@ -206,17 +208,16 @@ Message *receiveMessage(int fd)
                     msg->type = DATA;
                 else if (msg->type == COMMAND)
                 {
-                    printf("WARNING?? something unexpected happened.\n");
+                    printf("Undefined behaviour\n");
                     state = START;
                     continue;
                 }
 
-                // if writing at the end and more bytes will still be received
+                //Need to expand space
                 if (size % settings->messageDataMaxSize == 0)
                 {
                     int mFactor = size / settings->messageDataMaxSize + 1;
-                    message = (unsigned char *)realloc(message,
-                                                       mFactor * settings->messageDataMaxSize);
+                    message = (unsigned char *)realloc(message, mFactor * settings->messageDataMaxSize);
                 }
 
                 message[size++] = c;
@@ -231,12 +232,14 @@ Message *receiveMessage(int fd)
         }
     }
 
+    //Destuff
     size = destuff(&message, size);
 
     unsigned char A = message[1];
     unsigned char C = message[2];
     unsigned char BCC1 = message[3];
 
+    //BCC1 check
     if (BCC1 != (A ^ C))
     {
         printf("ERROR: invalid BCC1.\n");
@@ -251,7 +254,8 @@ Message *receiveMessage(int fd)
 
     if (msg->type == COMMAND)
     {
-        // get message command
+
+        //Identify command
         switch (message[2] & 0x0F)
         {
         case C_SET:
@@ -269,7 +273,16 @@ Message *receiveMessage(int fd)
             msg->command = SET;
         }
 
-        // get command control field
+        /*
+        TODO
+        It's printing that control field is not recognized
+        Because the default is to make it SET, the reader will work fine even after the print
+        But the writer wont receive UA so it wont finish estabilishing connection
+        Probably there is so mix up between Command and the Control structs, not sure we are sending the right one
+        and maybe reading the other one, should be easy fix
+        */
+
+        //Control field
         Control controlField = message[2];
 
         if (msg->command == RR || msg->command == REJ)
@@ -279,6 +292,7 @@ Message *receiveMessage(int fd)
     {
         msg->data.messageSize = size - 6 * sizeof(char);
 
+        //Check BCC2
         unsigned char calcBCC2 = processBCC(&message[4], msg->data.messageSize);
         unsigned char BCC2 = message[4 + msg->data.messageSize];
 
@@ -296,7 +310,7 @@ Message *receiveMessage(int fd)
 
         msg->ns = (message[2] >> 6) & BIT(0);
 
-        // copy message
+        //Copy the message
         msg->data.message = malloc(msg->data.messageSize);
         memcpy(msg->data.message, &message[4], msg->data.messageSize);
     }
@@ -437,7 +451,7 @@ int llopen()
             }
 
             //Receive response
-            if (messageIsCommand(receiveMessage(fd), UA))
+            if (identifyMessageCommand(receiveMessage(fd), UA))
                 connected = 1;
         }
 
@@ -450,7 +464,7 @@ int llopen()
         while (!connected)
         {
             //Receive setup and respond
-            if (messageIsCommand(receiveMessage(fd), SET))
+            if (identifyMessageCommand(receiveMessage(fd), SET))
             {
                 sendCommand(fd, C_UA);
                 connected = 1;
