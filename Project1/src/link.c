@@ -18,6 +18,8 @@ const int FLAG = 0x7E;
 const int A = 0x03;
 const int ESCAPE = 0x7D;
 
+const int DEBUG_MODE = 1;
+
 //Setup connection settings
 void connectionSettings(char *port, Mode mode)
 {
@@ -39,7 +41,7 @@ void sendCommand(int fd, Control com)
     const int commandMaxSize = 5 * sizeof(char);
 
     //Prepare command
-    unsigned char* command = malloc(commandMaxSize);
+    unsigned char *command = malloc(commandMaxSize);
 
     command[0] = FLAG;
     command[1] = A;
@@ -60,7 +62,178 @@ void sendCommand(int fd, Control com)
 
     //Free command
     free(command);
-    
+}
+
+int messageIsCommand(Message *msg, Command command)
+{
+    return msg->type == COMMAND && msg->command == command;
+}
+
+Message *receiveMessage(int fd)
+{
+    Message *msg = (Message *)malloc(sizeof(Message));
+    msg->type = INVALID;
+    msg->ns = msg->nr = -1;
+
+    State state = START;
+
+    int size = 0;
+    unsigned char *message = malloc(settings->messageDataMaxSize);
+
+    volatile int done = FALSE;
+    while (!done)
+    {
+        unsigned char c;
+
+        // if not stopping
+        if (state != STOP)
+        {
+            // read message
+            int numReadBytes = read(fd, &c, 1);
+
+            // if nothing was read
+            if (!numReadBytes)
+            {
+                if (DEBUG_MODE)
+                    printf("ERROR: nothing received.\n");
+
+                free(message);
+
+                msg->type = INVALID;
+                msg->error = INPUT_OUTPUT_ERROR;
+
+                return msg;
+            }
+        }
+
+        switch (state)
+        {
+        case START:
+            if (c == FLAG)
+            {
+                if (DEBUG_MODE)
+                    printf("START: FLAG received. Going to FLAG_RCV.\n");
+
+                message[size++] = c;
+
+                state = FLAG_RCV;
+            }
+            break;
+        case FLAG_RCV:
+            if (c == A)
+            {
+                if (DEBUG_MODE)
+                    printf("FLAG_RCV: A received. Going to A_RCV.\n");
+
+                message[size++] = c;
+
+                state = A_RCV;
+            }
+            else if (c != FLAG)
+            {
+                size = 0;
+
+                state = START;
+            }
+            break;
+        case A_RCV:
+            if (c != FLAG)
+            {
+                if (DEBUG_MODE)
+                    printf("A_RCV: C received. Going to C_RCV.\n");
+
+                message[size++] = c;
+
+                state = C_RCV;
+            }
+            else if (c == FLAG)
+            {
+                size = 1;
+
+                state = FLAG_RCV;
+            }
+            else
+            {
+                size = 0;
+
+                state = START;
+            }
+            break;
+        case C_RCV:
+            if (c == (message[1] ^ message[2]))
+            {
+                if (DEBUG_MODE)
+                    printf("C_RCV: BCC received. Going to BCC_OK.\n");
+
+                message[size++] = c;
+
+                state = BCC_OK;
+            }
+            else if (c == FLAG)
+            {
+                if (DEBUG_MODE)
+                    printf("C_RCV: FLAG received. Going back to FLAG_RCV.\n");
+
+                size = 1;
+
+                state = FLAG_RCV;
+            }
+            else
+            {
+                if (DEBUG_MODE)
+                    printf("C_RCV: ? received. Going back to START.\n");
+
+                size = 0;
+
+                state = START;
+            }
+            break;
+        case BCC_OK:
+            if (c == FLAG)
+            {
+                if (msg->type == INVALID)
+                    msg->type = COMMAND;
+
+                message[size++] = c;
+
+                state = STOP;
+
+                if (DEBUG_MODE)
+                    printf("BCC_OK: FLAG received. Going to STOP.\n");
+            }
+            else if (c != FLAG)
+            {
+                if (msg->type == INVALID)
+                    msg->type = DATA;
+                else if (msg->type == COMMAND)
+                {
+                    printf("WARNING?? something unexpected happened.\n");
+                    state = START;
+                    continue;
+                }
+
+                // if writing at the end and more bytes will still be received
+                if (size % settings->messageDataMaxSize == 0)
+                {
+                    int mFactor = size / settings->messageDataMaxSize + 1;
+                    message = (unsigned char *)realloc(message,
+                                                       mFactor * settings->messageDataMaxSize);
+                }
+
+                message[size++] = c;
+            }
+            break;
+        case STOP:
+            message[size] = 0;
+            done = TRUE;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return NULL;
+
 }
 
 //Stuffing
@@ -182,7 +355,9 @@ int llopen()
                     setAlarm();
             }
 
-            //TODO Receive response
+            //Receive response
+            if (messageIsCommand(receiveMessage(fd), UA))
+                connected = 1;
         }
 
         //Stop alarm
@@ -191,6 +366,15 @@ int llopen()
     //Reader mode
     else if (settings->mode == READER)
     {
+        while (!connected)
+        {
+            //Receive setup and respond
+            if (messageIsCommand(receiveMessage(fd), SET))
+            {
+                sendCommand(fd, UA);
+                connected = 1;
+            }
+        }
     }
 
     printf("Connection established\n");
