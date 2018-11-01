@@ -18,8 +18,6 @@ const int FLAG = 0x7E;
 const int A = 0x03;
 const int ESCAPE = 0x7D;
 
-const int DEBUG_MODE = 1;
-
 //Setup connection settings
 void connectionSettings(char *port, Mode mode)
 {
@@ -95,9 +93,6 @@ Message *receiveMessage(int fd)
             //Empty
             if (!numReadBytes)
             {
-                if (DEBUG_MODE)
-                    printf("ERROR: nothing received.\n");
-
                 free(message);
 
                 msg->type = INVALID;
@@ -113,9 +108,6 @@ Message *receiveMessage(int fd)
         case START:
             if (ch == FLAG)
             {
-                if (DEBUG_MODE)
-                    printf("START: FLAG received. Going to FLAG_RCV.\n");
-
                 message[size++] = ch;
 
                 state = FLAG_RCV;
@@ -124,9 +116,6 @@ Message *receiveMessage(int fd)
         case FLAG_RCV:
             if (ch == A)
             {
-                if (DEBUG_MODE)
-                    printf("FLAG_RCV: A received. Going to A_RCV.\n");
-
                 message[size++] = ch;
 
                 state = A_RCV;
@@ -141,9 +130,6 @@ Message *receiveMessage(int fd)
         case A_RCV:
             if (ch != FLAG)
             {
-                if (DEBUG_MODE)
-                    printf("A_RCV: C received. Going to C_RCV.\n");
-
                 message[size++] = ch;
 
                 state = C_RCV;
@@ -164,27 +150,18 @@ Message *receiveMessage(int fd)
         case C_RCV:
             if (ch == (message[1] ^ message[2]))
             {
-                if (DEBUG_MODE)
-                    printf("C_RCV: BCC received. Going to BCC_OK.\n");
-
                 message[size++] = ch;
 
                 state = BCC_OK;
             }
             else if (ch == FLAG)
             {
-                if (DEBUG_MODE)
-                    printf("C_RCV: FLAG received. Going back to FLAG_RCV.\n");
-
                 size = 1;
 
                 state = FLAG_RCV;
             }
             else
             {
-                if (DEBUG_MODE)
-                    printf("C_RCV: ? received. Going back to START.\n");
-
                 size = 0;
 
                 state = START;
@@ -199,9 +176,6 @@ Message *receiveMessage(int fd)
                 message[size++] = ch;
 
                 state = STOP;
-
-                if (DEBUG_MODE)
-                    printf("BCC_OK: FLAG received. Going to STOP.\n");
             }
             else if (ch != FLAG)
             {

@@ -289,7 +289,7 @@ void receiveData(int fd, int* N, char** buf, int* length) {
 
 	//Check if it's Data
 	if (C != CTRL_DATA) {
-		printf("ERROR: Expected data package but received other\n");
+		printf("ERROR: Wrong data package received, expected CTRL_DATA\n");
 		exit(ERROR);
 	}
 
@@ -376,7 +376,7 @@ void receiveFile(int fd)
     //Not end control package
     if (controlPackageTypeReceived != CTRL_END)
     {
-        printf("ERROR: Control field received (%d) is not END.\n", controlPackageTypeReceived);
+        printf("ERROR: Wrong control package received, expected CTRL_END");
         exit(ERROR);
     }
 
