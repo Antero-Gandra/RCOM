@@ -260,27 +260,23 @@ Message *receiveMessage(int fd)
         {
         case C_SET:
             msg->command = SET;
+            break;
         case C_UA:
             msg->command = UA;
+            break;
         case C_RR:
             msg->command = RR;
+            break;
         case C_REJ:
             msg->command = REJ;
+            break;
         case C_DISC:
             msg->command = DISC;
+            break;
         default:
             printf("ERROR: control field not recognized.\n");
             msg->command = SET;
         }
-
-        /*
-        TODO
-        It's printing that control field is not recognized
-        Because the default is to make it SET, the reader will work fine even after the print
-        But the writer wont receive UA so it wont finish estabilishing connection
-        Probably there is so mix up between Command and the Control structs, not sure we are sending the right one
-        and maybe reading the other one, should be easy fix
-        */
 
         //Control field
         Control controlField = message[2];
