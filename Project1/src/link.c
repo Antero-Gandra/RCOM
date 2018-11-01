@@ -469,3 +469,80 @@ int llopen()
 
     return fd;
 }
+
+void sendMessage(int fd, const unsigned char* message, int messageSize) {
+
+    //Setup message
+	unsigned char* msg = malloc(6 * sizeof(char) + messageSize);
+
+	unsigned char C = settings->ns << 6;
+	unsigned char BCC1 = A ^ C;
+	unsigned char BCC2 = processBCC(message, messageSize);
+
+	msg[0] = FLAG;
+	msg[1] = A;
+	msg[2] = C;
+	msg[3] = BCC1;
+
+	memcpy(&msg[4], message, messageSize);
+    
+	msg[4 + messageSize] = BCC2;
+	msg[5 + messageSize] = FLAG;
+
+	messageSize += 6 * sizeof(char);
+
+    //Stuffing
+	messageSize = stuff(&msg, messageSize);
+
+    //Send
+	int numWrittenBytes = write(fd, msg, messageSize);
+	if (numWrittenBytes != messageSize)
+		perror("ERROR: error while sending message.\n");
+
+    //free
+	free(msg);
+}
+
+int llwrite(int fd, const unsigned char* buf, int bufSize) {
+
+	int tries = 0;
+
+	while (1) {
+		if (tries == 0 || alarmFired) {
+			alarmFired = 0;
+
+			if (tries >= settings->numTries) {
+				stopAlarm();
+				printf("ERROR: Maximum number of retries exceeded.\n");
+				return 0;
+			}
+
+            //Send message
+			sendMessage(fd, buf, bufSize);
+
+			if (++tries == 1)
+				setAlarm();
+		}
+
+        //Response
+		Message* receivedMessage = receiveMessage(fd);
+
+        //Receiver ready / positive ACK
+		if (identifyMessageControl(receivedMessage, C_RR)) {
+			if (settings->ns != receivedMessage->nr)
+				settings->ns = receivedMessage->nr;
+
+			stopAlarm();
+			break;
+		} 
+        //Reject / negative ACK
+        else if (identifyMessageControl(receivedMessage, C_REJ)) {
+			stopAlarm();
+			tries = 0;
+		}
+	}
+
+	stopAlarm();
+
+    return 1;
+}

@@ -84,6 +84,7 @@ extern Settings *settings;
 void connectionSettings(char *port, Mode mode);
 
 void sendCommand(int fd, Control com);
+void sendMessage(int fd, const unsigned char* message, int messageSize);
 
 int identifyMessageControl(Message *msg, Control command);
 Message *receiveMessage(int fd);
@@ -93,3 +94,4 @@ int stuff(unsigned char **buf, int bufSize);
 int destuff(unsigned char **buf, int bufSize);
 
 int llopen();
+int llwrite(int fd, const unsigned char* buf, int bufSize);
