@@ -66,7 +66,8 @@ int main(int argc, char **argv)
     else
         receiveFile(fd);
 
-    //TODO Close connection
+    //Close connection
+    llclose(fd);
 
     return 0;
 }

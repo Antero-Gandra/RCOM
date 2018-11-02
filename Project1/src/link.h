@@ -94,5 +94,6 @@ int stuff(unsigned char **buf, int bufSize);
 int destuff(unsigned char **buf, int bufSize);
 
 int llopen();
+int llclose(int fd);
 int llwrite(int fd, const unsigned char* buf, int bufSize);
 int llread(int fd, unsigned char** message);

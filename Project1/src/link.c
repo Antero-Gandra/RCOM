@@ -478,6 +478,81 @@ int llopen()
     return fd;
 }
 
+int llclose(int fd) {
+	printf("*** Terminating connection. ***\n");
+
+	int try = 0, disconnected = 0;
+
+	switch (settings->mode) {
+	case WRITER: {
+		while (!disconnected) {
+			if (try == 0 || alarmFired) {
+				alarmFired = FALSE;
+
+				if (try >= settings->numTries) {
+					stopAlarm();
+					printf("ERROR: Maximum number of retries exceeded.\n");
+					printf("*** Connection aborted. ***\n");
+					return 0;
+				}
+
+				sendCommand(fd, C_DISC);
+
+				if (++try == 1)
+					setAlarm();
+			}
+
+			if (messageIsCommand(receiveMessage(fd), C_DISC))
+				disconnected = TRUE;
+		}
+
+		stopAlarm();
+		sendCommand(fd, C_UA);
+		sleep(1);
+
+		printf("*** Connection terminated. ***\n");
+
+		return 1;
+	}
+	case READER: {
+		while (!disconnected) {
+			if (messageIsCommand(receiveMessage(fd), C_DISC))
+				disconnected = TRUE;
+		}
+
+		int uaReceived = FALSE;
+		while (!uaReceived) {
+			if (try == 0 || alarmFired) {
+				alarmFired = FALSE;
+
+				if (try >= settings->numTries) {
+					stopAlarm();
+					printf("ERROR: Disconnect could not be sent.\n");
+					return 0;
+				}
+
+				sendCommand(fd, C_DISC);
+
+				if (++try == 1)
+					setAlarm();
+			}
+
+			if (messageIsCommand(receiveMessage(fd), C_UA))
+				uaReceived = TRUE;
+		}
+
+		stopAlarm();
+		printf("*** Connection terminated. ***\n");
+
+		return 1;
+	}
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 int llwrite(int fd, const unsigned char *buf, int bufSize)
 {
 
