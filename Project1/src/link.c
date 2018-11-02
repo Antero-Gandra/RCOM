@@ -19,46 +19,48 @@ const int A = 0x03;
 const int ESCAPE = 0x7D;
 
 //Identify Baudrate
-int findBaudrate(char* baudrateS) {
+int findBaudrate(char *baudrateS)
+{
 
     int baudrate = atoi(baudrateS);
 
-	switch (baudrate) {
-	case 0:
-		return B0;
-	case 50:
-		return B50;
-	case 75:
-		return B75;
-	case 110:
-		return B110;
-	case 134:
-		return B134;
-	case 150:
-		return B150;
-	case 200:
-		return B200;
-	case 300:
-		return B300;
-	case 600:
-		return B600;
-	case 1200:
-		return B1200;
-	case 1800:
-		return B1800;
-	case 2400:
-		return B2400;
-	case 4800:
-		return B4800;
-	case 9600:
-		return B9600;
-	case 19200:
-		return B19200;
-	case 38400:
-		return B38400;
-	default:
-		return -1;
-	}
+    switch (baudrate)
+    {
+    case 0:
+        return B0;
+    case 50:
+        return B50;
+    case 75:
+        return B75;
+    case 110:
+        return B110;
+    case 134:
+        return B134;
+    case 150:
+        return B150;
+    case 200:
+        return B200;
+    case 300:
+        return B300;
+    case 600:
+        return B600;
+    case 1200:
+        return B1200;
+    case 1800:
+        return B1800;
+    case 2400:
+        return B2400;
+    case 4800:
+        return B4800;
+    case 9600:
+        return B9600;
+    case 19200:
+        return B19200;
+    case 38400:
+        return B38400;
+    default:
+        return -1;
+    }
 }
 
 //Setup connection settings
@@ -69,56 +71,56 @@ void connectionSettings(char *port, Mode mode)
     settings = (Settings *)malloc(sizeof(Settings));
 
     //Settings file
-    FILE* settingsFile = fopen("settings.txt", "r");
+    FILE *settingsFile = fopen("settings.txt", "r");
 
     //Read fields
     char data[256];
 
     //Baud rate
-    char* baud;
-    if(fgets(data, 256, settingsFile)!=NULL)
+    char *baud;
+    if (fgets(data, 256, settingsFile) != NULL)
         baud = &data[9];
     int len = strlen(baud);
-    baud[len-1] = '\0';
+    baud[len - 1] = '\0';
 
-    printf("Baud rate set to: %s\n",baud);
+    printf("Baud rate set to: %s\n", baud);    
 
     settings->baudRate = findBaudrate(baud);
 
     //Max size
-    char* size;
-    if(fgets(data, 256, settingsFile)!=NULL)
+    char *size;
+    if (fgets(data, 256, settingsFile) != NULL)
         size = &data[12];
     len = strlen(size);
-    size[len-1] = '\0';
+    size[len - 1] = '\0';
 
-    printf("Size set to: %s\n",size);
+    printf("Size set to: %s\n", size);
 
     settings->messageDataMaxSize = atoi(size);
 
     //Timeout
-    char* timeout;
-    if(fgets(data, 256, settingsFile)!=NULL)
+    char *timeout;
+    if (fgets(data, 256, settingsFile) != NULL)
         timeout = &data[8];
     len = strlen(timeout);
-    timeout[len-1] = '\0';
+    timeout[len - 1] = '\0';
 
-    printf("Timeout set to: %s\n",timeout);
+    printf("Timeout set to: %s\n", timeout);
 
     settings->timeout = atoi(timeout);
 
     //Tries
-    char* tries;
-    if(fgets(data, 256, settingsFile)!=NULL)
+    char *tries;
+    if (fgets(data, 256, settingsFile) != NULL)
         tries = &data[6];
     len = strlen(tries);
-    tries[len-1] = '\0';
+    tries[len - 1] = '\0';
 
-    printf("Tries set to: %s\n",tries);
+    printf("Tries set to: %s\n", tries);
 
     strcpy(settings->port, port);
     settings->mode = mode;
-    settings->ns = 0;    
+    settings->ns = 0;
     settings->numTries = atoi(tries);
 }
 
@@ -568,93 +570,105 @@ int llopen()
     return fd;
 }
 
-int llclose(int fd) {
-	printf("Terminating connection...\n");
+int llclose(int fd)
+{
+    printf("Terminating connection...\n");
 
-	int tries = 0;
+    int tries = 0;
 
-	switch (settings->mode) {
-	case WRITER: {
-		while (1) {
-			if (tries == 0 || alarmFired) {
-				alarmFired = FALSE;
+    switch (settings->mode)
+    {
+    case WRITER:
+    {
+        while (1)
+        {
+            if (tries == 0 || alarmFired)
+            {
+                alarmFired = FALSE;
 
-				if (tries >= settings->numTries) {
-					stopAlarm();
-					printf("ERROR: Maximum number of retries exceeded.\n");
-					printf("CONNECTION ABORTED\n");
-					return ERROR;
-				}
-
-                //Send disconnect
-				sendCommand(fd, C_DISC);
-
-				if (++tries == 1)
-					setAlarm();
-			}
-
-            //Receive disconnect
-			if (identifyMessageControl(receiveMessage(fd), C_DISC))
-				break;
-		}
-
-		stopAlarm();
-		sendCommand(fd, C_UA);
-
-		printf("Connection terminated\n");
-
-		break;
-	}
-	case READER: {
-		while (1) {
-            //Receive disconnect
-			if (identifyMessageControl(receiveMessage(fd), C_DISC))
-				break;
-		}
-
-		int uaReceived = FALSE;
-		while (!uaReceived) {
-			if (tries == 0 || alarmFired) {
-				alarmFired = FALSE;
-
-				if (tries >= settings->numTries) {
-					stopAlarm();
-					printf("ERROR: Maximum number of retries exceeded.\n");
-					printf("CONNECTION ABORTED\n");
-					return ERROR;
-				}
+                if (tries >= settings->numTries)
+                {
+                    stopAlarm();
+                    printf("ERROR: Maximum number of retries exceeded.\n");
+                    printf("CONNECTION ABORTED\n");
+                    return ERROR;
+                }
 
                 //Send disconnect
-				sendCommand(fd, C_DISC);
+                sendCommand(fd, C_DISC);
 
-				if (++tries == 1)
-					setAlarm();
-			}
+                if (++tries == 1)
+                    setAlarm();
+            }
+
+            //Receive disconnect
+            if (identifyMessageControl(receiveMessage(fd), C_DISC))
+                break;
+        }
+
+        stopAlarm();
+        sendCommand(fd, C_UA);
+
+        printf("Connection terminated\n");
+
+        break;
+    }
+    case READER:
+    {
+        while (1)
+        {
+            //Receive disconnect
+            if (identifyMessageControl(receiveMessage(fd), C_DISC))
+                break;
+        }
+
+        int uaReceived = FALSE;
+        while (!uaReceived)
+        {
+            if (tries == 0 || alarmFired)
+            {
+                alarmFired = FALSE;
+
+                if (tries >= settings->numTries)
+                {
+                    stopAlarm();
+                    printf("ERROR: Maximum number of retries exceeded.\n");
+                    printf("CONNECTION ABORTED\n");
+                    return ERROR;
+                }
+
+                //Send disconnect
+                sendCommand(fd, C_DISC);
+
+                if (++tries == 1)
+                    setAlarm();
+            }
 
             //Receive UA
-			if (identifyMessageControl(receiveMessage(fd), C_UA))
-				uaReceived = TRUE;
-		}
+            if (identifyMessageControl(receiveMessage(fd), C_UA))
+                uaReceived = TRUE;
+        }
 
-		stopAlarm();
-		printf("Connection terminated\n");
+        stopAlarm();
+        printf("Connection terminated\n");
 
-		break;
-	}
-	default:
-		break;
-	}
+        break;
+    }
+    default:
+        break;
+    }
 
     //Reset oldtio
-    if (tcsetattr(fd, TCSANOW, &settings->oldtio) == -1) {
-		perror("tcsetattr");
-		return 0;
-	}
+    if (tcsetattr(fd, TCSANOW, &settings->oldtio) == -1)
+    {
+        perror("tcsetattr");
+        return 0;
+    }
 
     //Close file descriptor
-	close(fd);
+    close(fd);
 
-	return ERROR;
+    return ERROR;
 }
 
 int llwrite(int fd, const unsigned char *buf, int bufSize)
