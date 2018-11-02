@@ -479,78 +479,92 @@ int llopen()
 }
 
 int llclose(int fd) {
-	printf("*** Terminating connection. ***\n");
+	printf("Terminating connection...\n");
 
-	int try = 0, disconnected = 0;
+	int tries = 0;
 
 	switch (settings->mode) {
 	case WRITER: {
-		while (!disconnected) {
-			if (try == 0 || alarmFired) {
+		while (1) {
+			if (tries == 0 || alarmFired) {
 				alarmFired = FALSE;
 
-				if (try >= settings->numTries) {
+				if (tries >= settings->numTries) {
 					stopAlarm();
 					printf("ERROR: Maximum number of retries exceeded.\n");
-					printf("*** Connection aborted. ***\n");
-					return 0;
+					printf("CONNECTION ABORTED\n");
+					return ERROR;
 				}
 
+                //Send disconnect
 				sendCommand(fd, C_DISC);
 
-				if (++try == 1)
+				if (++tries == 1)
 					setAlarm();
 			}
 
-			if (messageIsCommand(receiveMessage(fd), C_DISC))
-				disconnected = TRUE;
+            //Receive disconnect
+			if (identifyMessageControl(receiveMessage(fd), C_DISC))
+				break;
 		}
 
 		stopAlarm();
 		sendCommand(fd, C_UA);
-		sleep(1);
 
-		printf("*** Connection terminated. ***\n");
+		printf("Terminating terminated\n");
 
-		return 1;
+		break;
 	}
 	case READER: {
-		while (!disconnected) {
-			if (messageIsCommand(receiveMessage(fd), C_DISC))
-				disconnected = TRUE;
+		while (1) {
+            //Receive disconnect
+			if (identifyMessageControl(receiveMessage(fd), C_DISC))
+				break;
 		}
 
 		int uaReceived = FALSE;
 		while (!uaReceived) {
-			if (try == 0 || alarmFired) {
+			if (tries == 0 || alarmFired) {
 				alarmFired = FALSE;
 
-				if (try >= settings->numTries) {
+				if (tries >= settings->numTries) {
 					stopAlarm();
-					printf("ERROR: Disconnect could not be sent.\n");
-					return 0;
+					printf("ERROR: Maximum number of retries exceeded.\n");
+					printf("CONNECTION ABORTED\n");
+					return ERROR;
 				}
 
+                //Send disconnect
 				sendCommand(fd, C_DISC);
 
-				if (++try == 1)
+				if (++tries == 1)
 					setAlarm();
 			}
 
-			if (messageIsCommand(receiveMessage(fd), C_UA))
+            //Receive UA
+			if (identifyMessageControl(receiveMessage(fd), C_UA))
 				uaReceived = TRUE;
 		}
 
 		stopAlarm();
-		printf("*** Connection terminated. ***\n");
+		printf("Terminating terminated\n");
 
-		return 1;
+		break;
 	}
 	default:
 		break;
 	}
 
-	return 0;
+    //Reset oldtio
+    if (tcsetattr(fd, TCSANOW, &settings->oldtio) == -1) {
+		perror("tcsetattr");
+		return 0;
+	}
+
+    //Close file descriptor
+	close(fd);
+
+	return ERROR;
 }
 
 int llwrite(int fd, const unsigned char *buf, int bufSize)

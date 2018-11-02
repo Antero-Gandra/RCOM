@@ -226,6 +226,8 @@ void sendFile(char *fileName, int fd)
 
     //End Packet
     sendControl(fd, CTRL_END, "0", "");
+
+    printf("File successfully sent.\n");
 }
 
 char* receiveControl(int fd, int *controlPackageType, int *fileLength)
