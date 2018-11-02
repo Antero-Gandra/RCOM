@@ -578,7 +578,7 @@ int llread(int fd, unsigned char **message)
         }
     }
 
-    //Alarm can be stopped by receiver
+    //Alarm stopped by receiver
     stopAlarm();
 
     return 1;

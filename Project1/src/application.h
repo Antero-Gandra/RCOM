@@ -21,7 +21,7 @@ void sendData(int fd, int N, const char* buffer, int length);
 
 void sendFile(char *fileName, int fd);
 
-void receiveControl(int fd, int* controlPackageType, int* fileLength, char** fileName);
+char* receiveControl(int fd, int* controlPackageType, int* fileLength);
 void receiveData(int fd, int* N, char** buf, int* length);
 
 void receiveFile(int fd);
