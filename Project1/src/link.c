@@ -18,18 +18,108 @@ const int FLAG = 0x7E;
 const int A = 0x03;
 const int ESCAPE = 0x7D;
 
+//Identify Baudrate
+int findBaudrate(char* baudrateS) {
+
+    int baudrate = atoi(baudrateS);
+
+	switch (baudrate) {
+	case 0:
+		return B0;
+	case 50:
+		return B50;
+	case 75:
+		return B75;
+	case 110:
+		return B110;
+	case 134:
+		return B134;
+	case 150:
+		return B150;
+	case 200:
+		return B200;
+	case 300:
+		return B300;
+	case 600:
+		return B600;
+	case 1200:
+		return B1200;
+	case 1800:
+		return B1800;
+	case 2400:
+		return B2400;
+	case 4800:
+		return B4800;
+	case 9600:
+		return B9600;
+	case 19200:
+		return B19200;
+	case 38400:
+		return B38400;
+	default:
+		return -1;
+	}
+}
+
 //Setup connection settings
 void connectionSettings(char *port, Mode mode)
 {
+
+    //Allocate Settings
     settings = (Settings *)malloc(sizeof(Settings));
+
+    //Settings file
+    FILE* settingsFile = fopen("settings.txt", "r");
+
+    //Read fields
+    char data[256];
+
+    //Baud rate
+    char* baud;
+    if(fgets(data, 256, settingsFile)!=NULL)
+        baud = &data[9];
+    int len = strlen(baud);
+    baud[len-1] = '\0';
+
+    printf("Baud rate set to: %s\n",baud);
+
+    settings->baudRate = findBaudrate(baud);
+
+    //Max size
+    char* size;
+    if(fgets(data, 256, settingsFile)!=NULL)
+        size = &data[12];
+    len = strlen(size);
+    size[len-1] = '\0';
+
+    printf("Size set to: %s\n",size);
+
+    settings->messageDataMaxSize = atoi(size);
+
+    //Timeout
+    char* timeout;
+    if(fgets(data, 256, settingsFile)!=NULL)
+        timeout = &data[8];
+    len = strlen(timeout);
+    timeout[len-1] = '\0';
+
+    printf("Timeout set to: %s\n",timeout);
+
+    settings->timeout = atoi(timeout);
+
+    //Tries
+    char* tries;
+    if(fgets(data, 256, settingsFile)!=NULL)
+        tries = &data[6];
+    len = strlen(tries);
+    tries[len-1] = '\0';
+
+    printf("Tries set to: %s\n",tries);
 
     strcpy(settings->port, port);
     settings->mode = mode;
-    settings->baudRate = B38400;
-    settings->messageDataMaxSize = 512;
-    settings->ns = 0;
-    settings->timeout = 3;
-    settings->numTries = 3;
+    settings->ns = 0;    
+    settings->numTries = atoi(tries);
 }
 
 //Prepares and sends command to fd
@@ -511,7 +601,7 @@ int llclose(int fd) {
 		stopAlarm();
 		sendCommand(fd, C_UA);
 
-		printf("Terminating terminated\n");
+		printf("Connection terminated\n");
 
 		break;
 	}
@@ -547,7 +637,7 @@ int llclose(int fd) {
 		}
 
 		stopAlarm();
-		printf("Terminating terminated\n");
+		printf("Connection terminated\n");
 
 		break;
 	}
