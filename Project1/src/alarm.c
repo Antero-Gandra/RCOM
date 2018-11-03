@@ -15,6 +15,8 @@ void alarmHandler(int signal)
 
     alarmFired = TRUE;
 
+    stats->timeouts++;
+
     printf("Connection time out!\n");
 
     //Set alarm again

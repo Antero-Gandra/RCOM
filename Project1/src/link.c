@@ -13,6 +13,7 @@
 #include "alarm.h"
 
 Settings *settings;
+Stats *stats;
 
 const int FLAG = 0x7E;
 const int A = 0x03;
@@ -124,6 +125,41 @@ void connectionSettings(char *port, Mode mode)
     settings->numTries = atoi(tries);
 }
 
+//Initialize statistics
+void statisticsSetup(){
+
+    stats = (Stats *)malloc(sizeof(Stats));
+
+    //Start clock
+    stats->startTime = clock();
+
+    //Reset values
+    stats->sent = 0;
+    stats->received = 0;
+
+    stats->timeouts = 0;
+
+    stats->sentRR = 0;
+    stats->sentREJ = 0;
+    stats->receivedRR = 0;
+    stats->receivedREJ = 0;
+}
+
+//Print statistics
+void printStats(){
+    printf("Connection statistics:\n");
+
+    double timeTaken = ((double)(clock()-stats->startTime))/CLOCKS_PER_SEC;
+    printf("\tTotal time: %f seconds\n", timeTaken);
+    printf("\tMessages sent: %d\n", stats->sent);
+    printf("\tMessages received: %d\n", stats->received);
+    printf("\tTimeouts occured: %d\n", stats->timeouts);
+    printf("\tRR sent: %d\n", stats->sentRR);
+    printf("\tREJ sent: %d\n", stats->sentREJ);
+    printf("\tRR received: %d\n", stats->receivedRR);
+    printf("\tREJ received: %d\n", stats->receivedREJ);
+}
+
 //Prepares and sends command to fd
 void sendCommand(int fd, Control com)
 {
@@ -151,6 +187,12 @@ void sendCommand(int fd, Control com)
 
     //Free command
     free(command);
+
+    if (com == C_REJ)
+		stats->sentREJ++;
+	else if (com == C_RR)
+		stats->sentRR++;
+
 }
 
 int identifyMessageControl(Message *msg, Control command)
@@ -345,6 +387,12 @@ Message *receiveMessage(int fd)
 
         if (msg->control == C_RR || msg->control == C_REJ)
             msg->nr = (control >> 7) & BIT(0);
+
+        if (msg->control == C_REJ)
+			stats->receivedREJ++;
+		else if (msg->control == C_RR)
+			stats->receivedRR++;
+        
     }
     //Message is data
     else if (msg->type == DATA)
@@ -372,6 +420,8 @@ Message *receiveMessage(int fd)
         //Copy the message
         msg->data.message = malloc(msg->data.size);
         memcpy(msg->data.message, &message[4], msg->data.size);
+
+        stats->received++;
     }
 
     free(message);
@@ -409,8 +459,10 @@ void sendMessage(int fd, const unsigned char *message, int messageSize)
     if (numWrittenBytes != messageSize)
         perror("ERROR: error while sending message.\n");
 
-    //free
     free(msg);
+
+    stats->sent++;
+
 }
 
 unsigned char processBCC(const unsigned char *buf, int size)

@@ -54,6 +54,9 @@ int main(int argc, char **argv)
     //Setup Link Settings
     connectionSettings(port, mode);
 
+    //Setup Statistics
+    statisticsSetup();
+
     //File descriptor of connection
     int fd;
 
@@ -68,6 +71,9 @@ int main(int argc, char **argv)
 
     //Close connection
     llclose(fd);
+
+    //Print Statistics
+    printStats();
 
     return 0;
 }
