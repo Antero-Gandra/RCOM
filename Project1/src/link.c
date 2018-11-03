@@ -581,7 +581,7 @@ int llopen()
                 {
                     stopAlarm();
                     printf("ERROR: Maximum number of retries exceeded.\n");
-                    printf("CONNECTION ABORTED\n");
+                    printf("Connection aborted\n");
                     exit(ERROR);
                 }
 
@@ -625,12 +625,13 @@ int llclose(int fd)
     printf("Terminating connection...\n");
 
     int tries = 0;
+    int in = TRUE;
 
     switch (settings->mode)
     {
     case WRITER:
     {
-        while (1)
+        while (in)
         {
             if (tries == 0 || alarmFired)
             {
@@ -640,7 +641,7 @@ int llclose(int fd)
                 {
                     stopAlarm();
                     printf("ERROR: Maximum number of retries exceeded.\n");
-                    printf("CONNECTION ABORTED\n");
+                    printf("Connection aborted\n");
                     return ERROR;
                 }
 
@@ -653,23 +654,28 @@ int llclose(int fd)
 
             //Receive disconnect
             if (identifyMessageControl(receiveMessage(fd), C_DISC))
-                break;
+                in = 0;
         }
 
         stopAlarm();
+
+        //Send UA to finalize
         sendCommand(fd, C_UA);
+
+        //Wait some time before closing
+        sleep(1);
 
         printf("Connection terminated\n");
 
         break;
     }
     case READER:
-    {
-        while (1)
+    { 
+        while (in)
         {
             //Receive disconnect
             if (identifyMessageControl(receiveMessage(fd), C_DISC))
-                break;
+                in = 0;
         }
 
         int uaReceived = FALSE;
@@ -683,7 +689,7 @@ int llclose(int fd)
                 {
                     stopAlarm();
                     printf("ERROR: Maximum number of retries exceeded.\n");
-                    printf("CONNECTION ABORTED\n");
+                    printf("Connection aborted\n");
                     return ERROR;
                 }
 

@@ -276,10 +276,8 @@ char* receiveControl(int fd, int *controlPackageType, int *fileLength)
         //Parameter is file name
         else if (paramType == FILE_NAME)
         {
-            octs = (int)package[index++];
-            printf("FILE NAME %s\n",&package[index]);            
+            octs = (int)package[index++];        
             return (char*)&package[index];
-            printf("COPY\n");
         }
     }
 
