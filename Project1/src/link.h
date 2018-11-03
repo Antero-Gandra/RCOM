@@ -66,7 +66,7 @@ typedef struct
 
 typedef struct
 {
-    time_t startTime; 
+    struct timespec startTime; 
 
     int sent;
     int received;

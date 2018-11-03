@@ -131,7 +131,7 @@ void statisticsSetup(){
     stats = (Stats *)malloc(sizeof(Stats));
 
     //Start clock
-    stats->startTime = time(NULL);
+    clock_gettime(CLOCK_REALTIME, &stats->startTime);
 
     //Reset values
     stats->sent = 0;
@@ -145,10 +145,18 @@ void statisticsSetup(){
     stats->receivedREJ = 0;
 }
 
+double timeSpecToSeconds(struct timespec* ts){
+    return (double)ts->tv_sec + (double)ts->tv_nsec / 1000000000.0;
+}
+
 //Print statistics
 void printStats(){
     printf("Connection statistics:\n");
-    printf("\tTotal time: %ld seconds\n", (time(NULL)-stats->startTime));
+
+    struct timespec endTime;
+    clock_gettime(CLOCK_REALTIME, &endTime);
+    printf("\tTotal time: %lf seconds\n", (timeSpecToSeconds(&endTime)-timeSpecToSeconds(&stats->startTime)));
+
     printf("\tMessages sent: %d\n", stats->sent);
     printf("\tMessages received: %d\n", stats->received);
     printf("\tTimeouts occured: %d\n", stats->timeouts);
