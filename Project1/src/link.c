@@ -119,10 +119,23 @@ void connectionSettings(char *port, Mode mode)
 
     printf("Tries set to: %s\n", tries);
 
+    settings->numTries = atoi(tries);
+
+     //Error chance
+    char *error;
+    if (fgets(data, 256, settingsFile) != NULL)
+        error = &data[6];
+    len = strlen(error);
+    error[len - 1] = '\0';
+
+    printf("Error chance set to: %s\n", error);
+
+    settings->errorChance = atoi(error);
+
     strcpy(settings->port, port);
     settings->mode = mode;
     settings->ns = 0;
-    settings->numTries = atoi(tries);
+    
 }
 
 //Initialize statistics
@@ -403,6 +416,9 @@ Message *receiveMessage(int fd)
     //Message is data
     else if (msg->type == DATA)
     {
+
+        stats->received++;
+
         msg->data.size = size - 6 * sizeof(char);
 
         //Check BCC2 (data)
@@ -427,7 +443,6 @@ Message *receiveMessage(int fd)
         msg->data.message = malloc(msg->data.size);
         memcpy(msg->data.message, &message[4], msg->data.size);
 
-        stats->received++;
     }
 
     free(message);
@@ -451,6 +466,12 @@ void sendMessage(int fd, const unsigned char *message, int messageSize)
     msg[3] = BCC1;
 
     memcpy(&msg[4], message, messageSize);
+
+    //Induce Error
+    if(rand()%100 > (100-settings->errorChance)){
+        printf("Randomly added error...\n");
+        msg[5] ++;
+    }
 
     msg[4 + messageSize] = BCC2;
     msg[5 + messageSize] = FLAG;
@@ -825,9 +846,11 @@ int llread(int fd, unsigned char **message)
 
                 done = TRUE;
             }
-            else
+            else{
                 printf("Wrong message ns associated: ignoring\n");
-
+                settings->ns = msg->ns;
+                sendCommand(fd, C_REJ);
+            }
             break;
         default:
             stopAlarm();

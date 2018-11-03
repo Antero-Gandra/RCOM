@@ -15,6 +15,9 @@
 int main(int argc, char **argv)
 {
 
+    //Random seed
+    srand(time(NULL));
+
     //Incorrect argument number
     if (argc < 2)
     {

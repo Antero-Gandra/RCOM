@@ -94,6 +94,7 @@ typedef struct
     int numTries;
     char frame[256];
     struct termios oldtio, newtio;
+    int errorChance;
 
 } Settings;
 
