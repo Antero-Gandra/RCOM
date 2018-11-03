@@ -131,7 +131,7 @@ void statisticsSetup(){
     stats = (Stats *)malloc(sizeof(Stats));
 
     //Start clock
-    stats->startTime = clock();
+    stats->startTime = time(NULL);
 
     //Reset values
     stats->sent = 0;
@@ -148,9 +148,7 @@ void statisticsSetup(){
 //Print statistics
 void printStats(){
     printf("Connection statistics:\n");
-
-    double timeTaken = ((double)(clock()-stats->startTime))/CLOCKS_PER_SEC;
-    printf("\tTotal time: %f seconds\n", timeTaken);
+    printf("\tTotal time: %ld seconds\n", (time(NULL)-stats->startTime));
     printf("\tMessages sent: %d\n", stats->sent);
     printf("\tMessages received: %d\n", stats->received);
     printf("\tTimeouts occured: %d\n", stats->timeouts);
