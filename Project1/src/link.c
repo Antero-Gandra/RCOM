@@ -662,8 +662,8 @@ int llclose(int fd)
         //Send UA to finalize
         sendCommand(fd, C_UA);
 
-        //Wait some time before closing
-        sleep(1);
+        //Syncronize fd to make sure it sends C_UA command before closing and resetting settings
+        sync();
 
         printf("Connection terminated\n");
 
