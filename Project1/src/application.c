@@ -267,20 +267,20 @@ char* receiveControl(int fd, int *controlPackageType, int *fileLength)
         if (paramType == FILE_SIZE)
         {
             octs = (int)package[index++];
-
             char *length = malloc(octs);
             memcpy(length, &package[index], octs);
-
             *fileLength = atoi(length);
             free(length);
-
             index+=octs;
         }
         //Parameter is file name
         else if (paramType == FILE_NAME)
         {
-            octs = (int)package[index++];        
-            return (char*)&package[index];
+            octs = (int)package[index++];
+            char* buf = malloc(octs);
+            memcpy(buf, &package[index], octs);
+            buf[octs] = '\0';
+            return buf;
         }
     }
 
