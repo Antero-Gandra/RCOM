@@ -2,7 +2,7 @@ BaudRate:38400
 DataMaxSize:512
 Timeout:3
 Tries:3
-Error:5
+Error:0
 
 ####################
 

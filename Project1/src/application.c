@@ -54,9 +54,6 @@ int main(int argc, char **argv)
         printf("No file provided, receiving\n");
     }
 
-    //Open file to be sent
-    FILE *file = openFile(argv[2]);
-
     //Setup Link Settings
     connectionSettings(port, mode);
 
@@ -71,7 +68,7 @@ int main(int argc, char **argv)
 
     //Send/Receive file
     if (settings->mode == WRITER)
-        sendFile(argv[2], fd, file);
+        sendFile(argv[2], fd);
     else
         receiveFile(fd);
 
@@ -198,8 +195,11 @@ void sendData(int fd, int N, const char *buffer, int length)
     free(package);
 }
 
-void sendFile(char *fileName, int fd, FILE* file)
+void sendFile(char *fileName, int fd)
 {
+
+    //Open file to be sent
+    FILE *file = openFile(fileName);
 
     //File size
     int fileS = fileSize(file);

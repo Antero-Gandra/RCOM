@@ -19,7 +19,7 @@ int fileSize(FILE *file);
 void sendControl(int fd, int cmd, char *fileS, char *fileName);
 void sendData(int fd, int N, const char* buffer, int length);
 
-void sendFile(char *fileName, int fd, FILE* file);
+void sendFile(char *fileName, int fd);
 
 char* receiveControl(int fd, int* controlPackageType, int* fileLength);
 void receiveData(int fd, int* N, char** buf, int* length);
