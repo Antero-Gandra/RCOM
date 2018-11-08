@@ -823,7 +823,6 @@ int llread(int fd, unsigned char **message)
             //BCC error
             if (msg->error == BCC2_ERROR)
             {
-                settings->ns = msg->ns;
                 sendCommand(fd, C_REJ);
             }
             break;
@@ -849,7 +848,6 @@ int llread(int fd, unsigned char **message)
             else{
                 printf("Wrong message ns associated: ignoring\n");
                 settings->ns = msg->ns;
-                sendCommand(fd, C_REJ);
             }
             break;
         default:
