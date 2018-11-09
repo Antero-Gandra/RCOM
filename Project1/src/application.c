@@ -209,8 +209,10 @@ void sendFile(char *fileName, int fd)
     //Start Packet
     sendControl(fd, CTRL_START, fileSizeBuf, fileName);
 
+    printf("Sending...\n");
+
     //File buffer
-    int maxSize = 256;
+    int maxSize = settings->messageDataMaxSize;
     char *fileBuf = malloc(maxSize);
 
     //Read chunks
