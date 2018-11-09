@@ -347,7 +347,8 @@ void receiveFile(int fd)
     }
 
     printf("Created output file: %s\n", fileName);
-    printf("Expected file size: %d (bytes)\n", fileSize);
+    printf("File size: %d (bytes)\n", fileSize);
+    printf("Receiving...\n");
 
     //Receive data
     int total = 0, N = -1;

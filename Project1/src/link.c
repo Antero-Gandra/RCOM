@@ -168,15 +168,15 @@ void printStats(){
 
     struct timespec endTime;
     clock_gettime(CLOCK_REALTIME, &endTime);
-    printf("\tTotal time: %lf seconds\n", (timeSpecToSeconds(&endTime)-timeSpecToSeconds(&stats->startTime)));
+    printf("\t- Total time: %lf seconds\n", (timeSpecToSeconds(&endTime)-timeSpecToSeconds(&stats->startTime)));
 
-    printf("\tMessages sent: %d\n", stats->sent);
-    printf("\tMessages received: %d\n", stats->received);
-    printf("\tTimeouts occured: %d\n", stats->timeouts);
-    printf("\tRR sent: %d\n", stats->sentRR);
-    printf("\tREJ sent: %d\n", stats->sentREJ);
-    printf("\tRR received: %d\n", stats->receivedRR);
-    printf("\tREJ received: %d\n", stats->receivedREJ);
+    printf("\t- Messages sent: %d\n", stats->sent);
+    printf("\t- Messages received: %d\n", stats->received);
+    printf("\t- Timeouts occured: %d\n", stats->timeouts);
+    printf("\t- RR sent: %d\n", stats->sentRR);
+    printf("\t- REJ sent: %d\n", stats->sentREJ);
+    printf("\t- RR received: %d\n", stats->receivedRR);
+    printf("\t- REJ received: %d\n", stats->receivedREJ);
 }
 
 //Prepares and sends command to fd
