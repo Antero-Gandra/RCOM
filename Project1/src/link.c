@@ -95,7 +95,7 @@ void connectionSettings(char *port, Mode mode)
     len = strlen(size);
     size[len - 1] = '\0';
 
-    printf("Size set to: %s\n", size);
+    printf("Size set to: %s(bytes)\n", size);
 
     settings->messageDataMaxSize = atoi(size);
 
@@ -106,7 +106,7 @@ void connectionSettings(char *port, Mode mode)
     len = strlen(timeout);
     timeout[len - 1] = '\0';
 
-    printf("Timeout set to: %s\n", timeout);
+    printf("Timeout set to: %s(seconds)\n", timeout);
 
     settings->timeout = atoi(timeout);
 
@@ -117,7 +117,7 @@ void connectionSettings(char *port, Mode mode)
     len = strlen(tries);
     tries[len - 1] = '\0';
 
-    printf("Tries set to: %s\n", tries);
+    printf("Tries set to: %s(attempts)\n", tries);
 
     settings->numTries = atoi(tries);
 
@@ -128,7 +128,7 @@ void connectionSettings(char *port, Mode mode)
     len = strlen(error);
     error[len - 1] = '\0';
 
-    printf("Error chance set to: %s\n", error);
+    printf("Error chance set to: %s(%% error chance per message)\n", error);
 
     settings->errorChance = atoi(error);
 
