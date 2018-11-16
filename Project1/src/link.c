@@ -466,10 +466,16 @@ void sendMessage(int fd, const unsigned char *message, int messageSize)
     msg[3] = BCC1;
 
     memcpy(&msg[4], message, messageSize);
-
-    //Induce Error
+	
+    //Induce Error Header
     if(rand()%100 > (100-settings->errorChance)){
-        printf("Randomly added error...\n");
+        printf("Randomly added header error...\n");
+        msg[1] ++;
+    }
+
+    //Induce Error Data
+    if(rand()%100 > (100-settings->errorChance)){
+        printf("Randomly added data error...\n");
         msg[5] ++;
     }
 
