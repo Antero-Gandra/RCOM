@@ -74,6 +74,7 @@ int parseArguments(int argc, char **argv){
       case 3:
         if(c == '\0'){
           arguments.path[li] = '\0';
+          state++;
           break;
         }
         arguments.path[li] = c;
@@ -85,18 +86,25 @@ int parseArguments(int argc, char **argv){
     i++;
   }while(c != '\0');
 
+  if(state < 4)
+    return 1;
+
   return 0;
 
 }
 
 int main(int argc, char **argv){
 
-  parseArguments(argc, argv);
+  if(parseArguments(argc, argv) == 1){
+    printf("\nInvalid arguments");
+    printf("\nUsage example:");
+    printf(" ./download ftp://[<user>:<password>@]<host>/<url-path>\n");
+  }
 
-  printf("%s\n",arguments.user);
-  printf("%s\n",arguments.password);
-  printf("%s\n",arguments.host);
-  printf("%s\n",arguments.path);
+  printf("%s\n", arguments.user);
+  printf("%s\n", arguments.password);
+  printf("%s\n", arguments.host);
+  printf("%s\n", arguments.path);
 
   int socketfd;
 	int socketfdClient = -1;
