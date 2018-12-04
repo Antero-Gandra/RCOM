@@ -4,7 +4,7 @@ LDFLAGS = -g
 
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src%, build%.o, $(SRC))
-OUT = app
+OUT = download
 
 .SUFFIXES: .c
 
