@@ -14,12 +14,17 @@
 #define SERVER_PORT 21
 #define SERVER_ADDR "192.168.28.96"
 
+#define ARG_SIZE 50
+
+#define BUF_SIZE 500
+
 struct Arguments
 {
-  char user[50];
-  char password[50];
-  char host[50];
-  char path[50];
+  char user[ARG_SIZE];
+  char password[ARG_SIZE];
+  char host[ARG_SIZE];
+  char path[ARG_SIZE];
+  char fileName[ARG_SIZE];
 } arguments;
 
 //Parse Arguments
@@ -28,7 +33,7 @@ int parseArguments(int argc, char **argv)
 
   //Wrong argument size
   if (argc < 2)
-    return 1;
+    return -1;
 
   //Raw string
   char *raw = argv[1];
@@ -95,7 +100,27 @@ int parseArguments(int argc, char **argv)
   } while (c != '\0');
 
   if (state < 4)
-    return 1;
+    return -1;
+
+  //Get filename
+  int indexPath = 0;
+  int indexFilename = 0;
+  memset(arguments.fileName, 0, ARG_SIZE);
+
+  for (; indexPath < strlen(arguments.path); indexPath++)
+  {
+
+    if (arguments.path[indexPath] == '/')
+    {
+      indexFilename = 0;
+      memset(arguments.fileName, 0, ARG_SIZE);
+    }
+    else
+    {
+      arguments.fileName[indexFilename] = arguments.path[indexPath];
+      indexFilename++;
+    }
+  }
 
   return 0;
 }
@@ -138,7 +163,7 @@ int response(int socket, char *code)
       {
         if (i != 3)
         {
-          printf(" > Error receiving response code\n");
+          printf("Error receiving response code\n");
           return -1;
         }
         i = 0;
@@ -195,15 +220,157 @@ int response(int socket, char *code)
   return 0;
 }
 
+//Get file
+void getFile(int fd, char *filename)
+{
+  FILE *file = fopen((char *)filename, "wb+");
+
+  char bufSocket[BUF_SIZE];
+  int bytes;
+  while ((bytes = read(fd, bufSocket, BUF_SIZE)) > 0)
+  {
+    bytes = fwrite(bufSocket, bytes, 1, file);
+  }
+
+  fclose(file);
+
+  printf("File downloaded\n");
+}
+
+int sendCommand(int socketfd, char cmd[], char commandContent[], char *fileName, int socketfdClient)
+{
+  char code[3];
+  int action = 0;
+
+  //Send command
+  if (write(socketfd, cmd, strlen(cmd)) == -1)
+    return -1;
+  if (write(socketfd, commandContent, strlen(commandContent)) == -1)
+    return -1;
+  if (write(socketfd, "\n", 1)  == -1)
+    return -1;
+
+  while (1)
+  {
+    //Read response code
+    response(socketfd, code);
+    action = code[0] - '0';
+
+    switch (action)
+    {
+    //Other response
+    case 1:
+      if (strcmp(cmd, "retr ") == 0)
+      {
+        getFile(socketfdClient, fileName);
+        break;
+      }
+      response(socketfd, code);
+      break;
+    //Accepted
+    case 2:
+      return 0;
+    //Incomplete information
+    case 3:
+      return 1;
+    //Retry
+    case 4:
+      if (write(socketfd, cmd, strlen(cmd)) == -1)
+        return -1;
+      if (write(socketfd, commandContent, strlen(commandContent)) == -1)
+        return -1;
+      if (write(socketfd, "\r\n", 2) == -1)
+        return -1;
+      break;
+    //Failed
+    case 5:
+      printf("Command refused\n");
+      close(socketfd);
+      exit(-1);
+    }
+  }
+}
+
+int getPort(int socketfd)
+{
+  int state = 0;
+  int index = 0;
+  char firstByte[4];
+  memset(firstByte, 0, 4);
+  char secondByte[4];
+  memset(secondByte, 0, 4);
+
+  char c;
+
+  while (state != 7)
+  {
+    if (read(socketfd, &c, 1) == -1)
+      return -1;
+    printf("%c", c);
+    switch (state)
+    {
+    case 0:
+      if (c == ' ')
+      {
+        if (index != 3)
+        {
+          printf("Error receiving response code\n");
+          return -1;
+        }
+        index = 0;
+        state = 1;
+      }
+      else
+      {
+        index++;
+      }
+      break;
+    case 5:
+      if (c == ',')
+      {
+        index = 0;
+        state++;
+      }
+      else
+      {
+        firstByte[index] = c;
+        index++;
+      }
+      break;
+    case 6:
+      if (c == ')')
+      {
+        state++;
+      }
+      else
+      {
+        secondByte[index] = c;
+        index++;
+      }
+      break;
+    default:
+      if (c == ',')
+      {
+        state++;
+      }
+      break;
+    }
+  }
+
+  int firstByteInt = atoi(firstByte);
+  int secondByteInt = atoi(secondByte);
+  return (firstByteInt * 256 + secondByteInt);
+}
+
 //  Example
-//  ./download ftp://utilizador:pass@ftp.fe.up.pt/pasta1/pasta2/imagem.png
+//  ./download ftp://epiz_23144137:j0WozA4EXa7abK@ftpupload.net/htdocs/pasta1/pasta2/test.txt
 
 //TODO separate to functions most stuff
 int main(int argc, char **argv)
 {
 
   //Parse arguments
-  if (parseArguments(argc, argv) == 1)
+  if (parseArguments(argc, argv) < 0)
   {
     printf("\nInvalid arguments");
     printf("\nUsage example:");
@@ -258,13 +425,47 @@ int main(int argc, char **argv)
     printf("Connection Estabilished\n");
   }
 
-  //TODO Send username
-  //TODO Send password
-  //TODO Get server port to be used
-  //TODO Open TCP socket to that port
-  //TODO Connect to server
-  //TODO Create and get file
-  //TODO Close connection
+  //Send username
+  printf("Sending Username\n");
+  int socketfdClient = -1;
+  sendCommand(socketfd, "user ", arguments.user, NULL, socketfdClient);
+
+  //Send password
+  printf("Sending Password\n");
+  sendCommand(socketfd, "pass ", arguments.password, NULL, socketfdClient);
+
+  //Get server port to be used
+  if (write(socketfd, "pasv\n", 5) == -1)
+    return -1;
+  int serverPort = getPort(socketfd);
+  printf("\nPort: %d\n", serverPort);
+
+  //Handle address
+  struct sockaddr_in server_addr_client;
+  bzero((char *)&server_addr_client, sizeof(server_addr_client));
+	server_addr_client.sin_family = AF_INET;
+	server_addr_client.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));
+	server_addr_client.sin_port = htons(serverPort);
+
+  //Open TCP socket to that port
+  if ((socketfdClient = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	{
+		perror("socket()");
+		exit(0);
+	}
+
+  //Connect to server
+  if (connect(socketfdClient, (struct sockaddr *)&server_addr_client, sizeof(server_addr_client)) < 0)
+	{
+		perror("connect()");
+		exit(0);
+	}
+
+  //Send retr and get file
+  sendCommand(socketfd, "retr ", arguments.path, arguments.fileName, socketfdClient);
+
+  close(socketfdClient);
+	close(socketfd);
 
   return 0;
 }
