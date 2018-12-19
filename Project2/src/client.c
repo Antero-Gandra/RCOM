@@ -464,10 +464,11 @@ int main(int argc, char **argv)
     sendCommand(socketfd, "pass ", arguments.password, NULL, socketfdClient);
 
     //Get server port to be used
+    printf("Setting passive mode\n");
     if (write(socketfd, "pasv\n", 5) == -1)
         return -1;
     int serverPort = getPort(socketfd);
-    printf("\nPort: %d", serverPort);
+    printf("\nPort received: %d", serverPort);
 
     //Handle address
     struct sockaddr_in server_addr_client;
