@@ -14,7 +14,7 @@
 #define SERVER_PORT 21
 #define SERVER_ADDR "192.168.28.96"
 
-#define ARG_SIZE 50
+#define ARG_SIZE 100
 
 #define BUF_SIZE 500
 
@@ -65,12 +65,13 @@ int parseArguments(int argc, char **argv)
     int state = 0;
 
     //If didnt find user name assume anonymous and skip states
-    if(found == 0){
+    if (found == 0)
+    {
         printf("No user credentials provided, assuming anonymous login\n");
         state = 2;
         strcpy(arguments.user, "anonymous");
         strcpy(arguments.password, "anonymous");
-    }    
+    }
 
     //Process
     do
@@ -131,24 +132,27 @@ int parseArguments(int argc, char **argv)
         return -1;
 
     //Get filename
-    int indexPath = 0;
-    int indexFilename = 0;
-    memset(arguments.fileName, 0, ARG_SIZE);
+    int iPath;
+    int pathSize = strlen(arguments.path);
+    int iFilename = 0;
 
-    for (; indexPath < strlen(arguments.path); indexPath++)
+    //Go through path and write to filename but clear when finding a '/'
+    //In the end we will have the last piece of the path, the file name
+    for (iPath = 0; iPath < pathSize; iPath++)
     {
-
-        if (arguments.path[indexPath] == '/')
-        {
-            indexFilename = 0;
-            memset(arguments.fileName, 0, ARG_SIZE);
-        }
+        //Reset index
+        if (arguments.path[iPath] == '/')
+            iFilename = 0;
+        //Write to string
         else
         {
-            arguments.fileName[indexFilename] = arguments.path[indexPath];
-            indexFilename++;
+            arguments.fileName[iFilename] = arguments.path[iPath];
+            iFilename++;
         }
     }
+
+    //Close name
+    arguments.fileName[iFilename] = '\0';
 
     return 0;
 }
@@ -219,7 +223,7 @@ int response(int socket, char *code)
                 state = 3;
             }
             break;
-        //Multi line code
+        //Multi line response
         case 2:
             if (c == code[i])
             {
@@ -249,27 +253,28 @@ int response(int socket, char *code)
 //Get file
 void getFile(int fd, char *filename)
 {
-    FILE *file = fopen((char *)filename, "wb+");
+    //Open file
+    FILE *file = fopen((char *)filename, "w");
 
+    //Write in chunks
     char bufSocket[BUF_SIZE];
     int bytes;
     while ((bytes = read(fd, bufSocket, BUF_SIZE)) > 0)
-    {
         bytes = fwrite(bufSocket, bytes, 1, file);
-    }
 
+    //Close file
     fclose(file);
 
     printf("File downloaded\n");
 }
 
-int sendCommand(int socketfd, char cmd[], char commandContent[], char *fileName, int socketfdClient)
+int sendCommand(int socketfd, char cmdBase[], char commandContent[], char *fileName, int socketfdClient)
 {
     char code[3];
-    int action = 0;
+    int type = 0;
 
     //Send command
-    if (write(socketfd, cmd, strlen(cmd)) == -1)
+    if (write(socketfd, cmdBase, strlen(cmdBase)) == -1)
         return -1;
     if (write(socketfd, commandContent, strlen(commandContent)) == -1)
         return -1;
@@ -280,13 +285,13 @@ int sendCommand(int socketfd, char cmd[], char commandContent[], char *fileName,
     {
         //Read response code
         response(socketfd, code);
-        action = code[0] - '0';
+        type = code[0] - '0';
 
-        switch (action)
+        switch (type)
         {
         //Other response
         case 1:
-            if (strcmp(cmd, "retr ") == 0)
+            if (strcmp(cmdBase, "retr ") == 0)
             {
                 getFile(socketfdClient, fileName);
                 break;
@@ -301,7 +306,7 @@ int sendCommand(int socketfd, char cmd[], char commandContent[], char *fileName,
             return 1;
         //Retry
         case 4:
-            if (write(socketfd, cmd, strlen(cmd)) == -1)
+            if (write(socketfd, cmdBase, strlen(cmdBase)) == -1)
                 return -1;
             if (write(socketfd, commandContent, strlen(commandContent)) == -1)
                 return -1;
@@ -310,29 +315,31 @@ int sendCommand(int socketfd, char cmd[], char commandContent[], char *fileName,
             break;
         //Failed
         case 5:
-            printf("Command refused\n");
+            printf("Command refused, not retrying\n");
             close(socketfd);
             exit(-1);
         }
     }
 }
 
+//Get server port
 int getPort(int socketfd)
-{
-    int state = 0;
-    int index = 0;
-    char firstByte[4];
-    memset(firstByte, 0, 4);
-    char secondByte[4];
-    memset(secondByte, 0, 4);
+{    
+    
+    //Only need the last 2
+    char fifth[4];
+    char sixth[4];
 
     char c;
-
+    int index = 0;
+    int state = 0;
     while (state != 7)
     {
         if (read(socketfd, &c, 1) == -1)
             return -1;
+
         printf("%c", c);
+
         switch (state)
         {
         case 0:
@@ -340,16 +347,14 @@ int getPort(int socketfd)
             {
                 if (index != 3)
                 {
-                    printf("Error receiving response code\n");
+                    printf("Error receiving response code in getPort()\n");
                     return -1;
                 }
                 index = 0;
                 state = 1;
             }
             else
-            {
                 index++;
-            }
             break;
         case 5:
             if (c == ',')
@@ -359,33 +364,30 @@ int getPort(int socketfd)
             }
             else
             {
-                firstByte[index] = c;
+                fifth[index] = c;
                 index++;
             }
             break;
         case 6:
             if (c == ')')
-            {
                 state++;
-            }
             else
             {
-                secondByte[index] = c;
+                sixth[index] = c;
                 index++;
             }
             break;
         default:
             if (c == ',')
-            {
                 state++;
-            }
             break;
         }
     }
 
-    int firstByteInt = atoi(firstByte);
-    int secondByteInt = atoi(secondByte);
-    return (firstByteInt * 256 + secondByteInt);
+    int fifthVal = atoi(fifth);
+    int sixthVal = atoi(sixth);
+    int port = fifthVal * 256 + sixthVal;
+    return port;
 }
 
 // Example
@@ -393,7 +395,6 @@ int getPort(int socketfd)
 // ./download ftp://anonymous:anonymous@ftp.up.pt/pub/CTAN/timestamp
 // ./download ftp://anonymous:anonymous@ftp.up.pt/CentOS/2.1/readme.txt
 
-//TODO separate to functions most stuff
 int main(int argc, char **argv)
 {
 
@@ -494,6 +495,7 @@ int main(int argc, char **argv)
     //Send retr and get file
     sendCommand(socketfd, "retr ", arguments.path, arguments.fileName, socketfdClient);
 
+    //Close everything
     close(socketfdClient);
     close(socketfd);
 
