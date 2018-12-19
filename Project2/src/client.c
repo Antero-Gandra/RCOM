@@ -38,13 +38,41 @@ int parseArguments(int argc, char **argv)
     //Raw string
     char *raw = argv[1];
 
-    //Process string
-    char c;
     //Global index
     int i = 6;
+
+    //Detect username and password
+    char c;
+    int found = 0;
+    do
+    {
+        c = raw[i];
+        if (c == '@')
+        {
+            found = 1;
+            break;
+        }
+        i++;
+    } while (c != '\0');
+
+    //Reset counter
+    i = 6;
+
     //Local index
     int li = 0;
+
+    //Processing state
     int state = 0;
+
+    //If didnt find user name assume anonymous and skip states
+    if(found == 0){
+        printf("No user credentials provided, assuming anonymous login\n");
+        state = 2;
+        strcpy(arguments.user, "anonymous");
+        strcpy(arguments.password, "anonymous");
+    }    
+
+    //Process
     do
     {
         c = raw[i];
@@ -145,8 +173,6 @@ int response(int socket, char *code)
     int state = 0;
     int i = 0;
     char c;
-
-    printf("Response: ");
 
     while (state != 3)
     {
@@ -362,8 +388,10 @@ int getPort(int socketfd)
     return (firstByteInt * 256 + secondByteInt);
 }
 
-//  Example
-//  ./download ftp://epiz_23144137:j0WozA4EXa7abK@ftpupload.net/htdocs/pasta1/pasta2/test.txt
+// Example
+// ./download ftp://epiz_23144137:j0WozA4EXa7abK@ftpupload.net/htdocs/pasta1/pasta2/test.txt
+// ./download ftp://anonymous:anonymous@ftp.up.pt/pub/CTAN/timestamp
+// ./download ftp://anonymous:anonymous@ftp.up.pt/CentOS/2.1/readme.txt
 
 //TODO separate to functions most stuff
 int main(int argc, char **argv)
@@ -382,6 +410,7 @@ int main(int argc, char **argv)
     printf("Password: %s\n", arguments.password);
     printf("Host: %s\n", arguments.host);
     printf("Path: %s\n", arguments.path);
+    printf("File: %s\n", arguments.fileName);
 
     //Get IP
     struct hostent *h = getip(arguments.host);
@@ -438,7 +467,7 @@ int main(int argc, char **argv)
     if (write(socketfd, "pasv\n", 5) == -1)
         return -1;
     int serverPort = getPort(socketfd);
-    printf("\nPort: %d\n", serverPort);
+    printf("\nPort: %d", serverPort);
 
     //Handle address
     struct sockaddr_in server_addr_client;
